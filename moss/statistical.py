@@ -3,7 +3,6 @@ from __future__ import division
 import numpy as np
 from scipy import stats
 
-
 def bootstrap(a, n_boot=10000, stat_func=np.mean):
     """Resample an array with replacement and calculate a summary stat.
 
