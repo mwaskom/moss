@@ -9,6 +9,11 @@ Installation
 
 $ python setup.py install
 
+Testing
+-------
+
+$ nosetests
+
 Development
 -----------
 
