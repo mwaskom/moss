@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 import nose.tools
@@ -68,27 +69,49 @@ def test_percentiles():
     array = stat.percentiles(a_range, array_val)
     assert_array_almost_equal(array, array_val)
 
+
+def test_percentiles_acc():
+    """Test accuracy of calculation."""
+    # First a basic case
     data = np.array([10, 20, 30])
     val = 20
     perc = stat.percentiles(data, 50)
     assert_equal(perc, val)
 
+    # Now test against scoreatpercentile
+    percentiles = np.random.randint(0, 101, 10)
+    out = stat.percentiles(a_norm, percentiles)
+    for score, pct in zip(out, percentiles):
+        assert_equal(score, scipy.stats.scoreatpercentile(a_norm, pct))
 
-def test_pmf_hist():
+
+def test_pmf_hist_basics():
     """Test the function to return barplot args for pmf hist."""
     out = stat.pmf_hist(a_norm)
-
-    # Basics
     assert_equal(len(out), 3)
     x, h, w = out
     assert_equal(len(x), len(h))
 
-    # Widths are correct
+    # Test simple case
+    a = np.arange(10)
+    x, h, w = stat.pmf_hist(a, 10)
+    nose.tools.assert_true(np.all(h == h[0]))
+
+
+def test_pmf_hist_widths():
+    """Test histogram width is correct."""
+    x, h, w = stat.pmf_hist(a_norm)
     assert_equal(x[1] - x[0], w)
 
-    # Test normalization
-    nose.tools.assert_almost_equal(sum(h), 1)
 
-    # Test bin specification
+def test_pmf_hist_normalization():
+    """Test that output data behaves like a PMF."""
+    x, h, w = stat.pmf_hist(a_norm)
+    nose.tools.assert_almost_equal(sum(h), 1)
+    nose.tools.assert_less_equal(h.max(), 1)
+
+
+def test_pmf_hist_bins():
+    """Test bin specification."""
     x, h, w = stat.pmf_hist(a_norm, 20)
     assert_equal(len(x), 20)
