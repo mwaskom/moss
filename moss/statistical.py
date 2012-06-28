@@ -5,7 +5,7 @@ from scipy import stats
 
 
 def bootstrap(*args, **kwargs):
-    """Resample one or more arrays with and calculate a summary statistic.
+    """Resample one or more arrays and call a function on each sample.
 
     Positional arguments are a sequence of arrays to bootrap
     along the first axis and pass to a summary function.
