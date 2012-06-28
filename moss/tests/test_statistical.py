@@ -126,6 +126,7 @@ def test_pmf_hist_bins():
     x, h, w = stat.pmf_hist(a_norm, 20)
     assert_equal(len(x), 20)
 
+
 def test_add_constant():
     """Test the add_constant function."""
     a = np.random.randn(10, 5)
