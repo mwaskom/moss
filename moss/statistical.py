@@ -40,29 +40,40 @@ def bootstrap(*args, **kwargs):
     return np.array(boot_dist)
 
 
-def percentiles(a, pcts):
+def percentiles(a, pcts, axis=None):
     """Like scoreatpercentile but can take and return array of percentiles.
 
     Parameters
     ----------
-    a: array
+    a : array
         data
-    pcts: sequence of percentile values
+    pcts : sequence of percentile values
         percentile or percentiles to find score at
+    axis : int or None
+        if not None, computes scores over this axis
 
     Returns
     -------
     scores: array
         array of scores at requested percentiles
+        first dimension is length of object passed to ``pcts``
 
     """
+    scores = []
     try:
-        scores = np.zeros(len(pcts))
+        n = len(pcts)
     except TypeError:
         pcts = [pcts]
-        scores = np.zeros(1)
+        n = 0
     for i, p in enumerate(pcts):
-        scores[i] = stats.scoreatpercentile(a, p)
+        if axis is None:
+            score = stats.scoreatpercentile(a.ravel(), p)
+        else:
+            score = np.apply_along_axis(stats.scoreatpercentile, axis, a, p)
+        scores.append(score)
+    scores = np.asarray(scores)
+    if not n:
+        scores = scores.squeeze()
     return scores
 
 

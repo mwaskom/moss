@@ -95,6 +95,26 @@ def test_percentiles_acc():
         assert_equal(score, scipy.stats.scoreatpercentile(a_norm, pct))
 
 
+def test_percentiles_axis():
+    """Test use of axis argument to percentils."""
+    data = np.random.randn(10, 10)
+    
+    # Test against the median with 50th percentile
+    median1 = np.median(data)
+    out1 = stat.percentiles(data, 50)
+    assert_array_almost_equal(median1, out1)
+
+    for axis in range(2):
+        median2 = np.median(data, axis=axis)
+        out2 = stat.percentiles(data, 50, axis=axis)
+        assert_array_almost_equal(median2, out2)
+
+    median3 = np.median(data, axis=0)
+    out3 = stat.percentiles(data, [50, 95], axis=0)
+    assert_array_almost_equal(median3, out3[0])
+    assert_equal(2, len(out3))
+
+
 def test_pmf_hist_basics():
     """Test the function to return barplot args for pmf hist."""
     out = stat.pmf_hist(a_norm)
