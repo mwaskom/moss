@@ -3,17 +3,18 @@ from __future__ import division
 import numpy as np
 from scipy import stats
 
-def bootstrap(a, n_boot=10000, stat_func=np.mean):
-    """Resample an array with replacement and calculate a summary stat.
 
-    Parameters
-    ----------
-    a: array
-        data to resample
-    n_boot: int
-        number of resamples
-    stat_func: callable
-        function to call on each resampled dataset
+def bootstrap(*args, **kwargs):
+    """Resample one or more arrays with and calculate a summary statistic.
+
+    Positional arguments are a sequence of arrays to bootrap
+    along the first axis and pass to a summary function.
+
+    Keyword arguments:
+        n_boot : int
+            number of iterations
+        func : callable
+            function to call on the args that are passed in
 
     Returns
     -------
@@ -21,14 +22,22 @@ def bootstrap(a, n_boot=10000, stat_func=np.mean):
         array of bootstrapped statistic values
 
     """
-    if (np.array(a.shape) > 1).sum() > 1:
-        raise ValueError("Input array must be one dimensional")
-    boot_dist = np.zeros(n_boot)
-    n = len(a)
-    for i in xrange(n_boot):
-        sample = a[np.random.randint(0, n, n)]
-        boot_dist[i] = stat_func(sample)
-    return boot_dist
+    # Ensure list of arrays are same length
+    if len(np.unique(map(len, args))) > 1:
+        raise ValueError("All input arrays must have the same length")
+    n = len(args[0])
+
+    # Default keyword arguments
+    n_boot = kwargs.get("n_boot", 10000)
+    func = kwargs.get("func", np.mean)
+
+    # Do the bootstrap
+    boot_dist = []
+    for i in xrange(int(n_boot)):
+        resampler = np.random.randint(0, n, n)
+        sample = [a[resampler] for a in args]
+        boot_dist.append(func(*sample))
+    return np.array(boot_dist)
 
 
 def percentiles(a, pcts):
@@ -81,3 +90,20 @@ def pmf_hist(a, bins=10):
     h = n / n.sum()
     w = x[1] - x[0]
     return x[:-1], h, w
+
+
+def add_constant(a):
+    """Add a constant term to a design matrix.
+
+    Parameters
+    ----------
+    a : array
+        original design matrix
+
+    Returns
+    -------
+    a : array
+        design matrix with constant as final column
+
+    """
+    return np.column_stack((a, np.ones(len(a))))
