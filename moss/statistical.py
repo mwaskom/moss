@@ -77,32 +77,6 @@ def percentiles(a, pcts, axis=None):
     return scores
 
 
-def pmf_hist(a, bins=10):
-    """Return arguments to plt.bar for pmf-like histogram of an array.
-
-    Parameters
-    ----------
-    a: array-like
-        array to make histogram of
-    bins: int
-        number of bins
-
-    Returns
-    -------
-    x: array
-        left x position of bars
-    h: array
-        height of bars
-    w: float
-        width of bars
-
-    """
-    n, x = np.histogram(a, bins)
-    h = n / n.sum()
-    w = x[1] - x[0]
-    return x[:-1], h, w
-
-
 def add_constant(a):
     """Add a constant term to a design matrix.
 
