@@ -164,7 +164,7 @@ def test_filter_psd():
 
 def test_filter_strength():
     """Test that lower cutoff makes filter more aggresive."""
-    a = np.array([np.sin(x) for x in np.linspace(0, 4 * np.pi, 100)])
+    a = np.sin(np.linspace(0, 4 * np.pi, 100))
     b = np.random.randn(100) / 2
     y = a + b
 
