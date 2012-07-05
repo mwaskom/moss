@@ -155,15 +155,15 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
         filtered version of the data
 
     """
-    n_tp = len(data)
     if copy:
         data = data.copy()
     # Ensure data is in right shape
+    n_tp = len(data)
     data = np.atleast_2d(data).reshape(n_tp, -1)
 
     # Filter each column of the data
     F = fsl_highpass_matrix(n_tp, cutoff, tr)
-    for col in xrange(data.shape[1]):
-        data[:, col] = np.dot(F, data[:, col])
+    for j, col in enumerate(data.T):
+        data[:, j] = np.dot(F, col)
 
     return data.squeeze()
