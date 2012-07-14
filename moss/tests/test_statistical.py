@@ -150,7 +150,7 @@ def test_filtered_data_shape():
 
 def test_filter_psd():
     """Test highpass filter with power spectral density."""
-    a = np.array([np.sin(x) for x in np.linspace(0, 4 * np.pi, 100)])
+    a = np.sin(np.linspace(0, 4 * np.pi, 100))
     b = np.random.randn(100) / 2
     y = a + b
     y_filt = stat.fsl_highpass_filter(y, 10)
