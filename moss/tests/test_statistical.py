@@ -176,3 +176,8 @@ def test_filter_strength():
         densities[i] = density.mean()
 
     assert_array_equal(densities, np.sort(densities))
+
+
+def test_filter_copy():
+    """Test that copy argument to filter function works."""
+    raise NotImplementedError
