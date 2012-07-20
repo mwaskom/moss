@@ -147,7 +147,7 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
     tr : float
         data TR in seconds
     copy : boolean
-        if True makes copy of data before filtering
+        if False data is filtered in place
 
     Returns
     -------
@@ -163,7 +163,6 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
 
     # Filter each column of the data
     F = fsl_highpass_matrix(n_tp, cutoff, tr)
-    for j, col in enumerate(data.T):
-        data[:, j] = np.dot(F, col)
+    data[:] = np.dot(F, data)
 
     return data.squeeze()

@@ -180,7 +180,7 @@ def test_filter_strength():
 
 def test_filter_copy():
     """Test that copy argument to filter function works."""
-    a = np.random.randn(100)
+    a = np.random.randn(100, 10)
     a_copy = stat.fsl_highpass_filter(a, 50, copy=True)
     assert(not (a == a_copy).all())
     a_nocopy = stat.fsl_highpass_filter(a, 100, copy=False)
