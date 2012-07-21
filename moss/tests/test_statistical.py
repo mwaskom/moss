@@ -53,6 +53,29 @@ def test_bootstrap_multiarg():
     assert_array_equal(out_actual, out_wanted)
 
 
+def test_bootstrap_ols():
+    """Test bootstrap of OLS model fit."""
+    ols_fit = lambda X, y: np.dot(np.dot(np.linalg.inv(
+                                  np.dot(X.T, X)), X.T), y)
+    X = np.column_stack((np.random.randn(50, 4), np.ones(50)))
+    w = [2, 4, 0, 3, 5]
+    y_noisy = np.dot(X, w) + np.random.randn(50) * 20
+    y_lownoise = np.dot(X, w) + np.random.randn(50)
+
+    n_boot = 500
+    w_boot_noisy = stat.bootstrap(X, y_noisy,
+                                  n_boot=n_boot,
+                                  func=ols_fit)
+    w_boot_lownoise = stat.bootstrap(X, y_lownoise,
+                                     n_boot=n_boot,
+                                     func=ols_fit)
+
+    assert_equal(w_boot_noisy.shape, (n_boot, 5))
+    assert_equal(w_boot_lownoise.shape, (n_boot, 5))
+    nose.tools.assert_greater(w_boot_noisy.std(),
+                              w_boot_lownoise.std())
+
+
 @raises(ValueError)
 def test_bootstrap_arglength():
     """Test that different length args raise ValueError."""
