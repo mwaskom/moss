@@ -14,6 +14,8 @@ def bootstrap(*args, **kwargs):
     Keyword arguments:
         n_boot : int
             number of iterations
+        axis : int
+            will pass axis to ``func``
         func : callable
             function to call on the args that are passed in
 
@@ -31,13 +33,18 @@ def bootstrap(*args, **kwargs):
     # Default keyword arguments
     n_boot = kwargs.get("n_boot", 10000)
     func = kwargs.get("func", np.mean)
+    axis = kwargs.get("axis", None)
+    if axis is None:
+        func_kwargs = dict()
+    else:
+        func_kwargs = dict(axis=axis)
 
     # Do the bootstrap
     boot_dist = []
     for i in xrange(int(n_boot)):
         resampler = np.random.randint(0, n, n)
         sample = [a[resampler] for a in args]
-        boot_dist.append(func(*sample))
+        boot_dist.append(func(*sample, **func_kwargs))
     return np.array(boot_dist)
 
 

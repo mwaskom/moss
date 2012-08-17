@@ -53,6 +53,16 @@ def test_bootstrap_multiarg():
     assert_array_equal(out_actual, out_wanted)
 
 
+def test_bootstrap_axis():
+    """Test axis kwarg to bootstrap function."""
+    x = np.random.randn(10, 20)
+    n_boot = 100
+    out_default = stat.bootstrap(x, n_boot=n_boot)
+    assert_equal(out_default.shape, (n_boot,))
+    out_axis = stat.bootstrap(x, n_boot=n_boot, axis=0)
+    assert_equal(out_axis.shape, (n_boot, 20))
+
+
 def test_bootstrap_ols():
     """Test bootstrap of OLS model fit."""
     ols_fit = lambda X, y: np.dot(np.dot(np.linalg.inv(
