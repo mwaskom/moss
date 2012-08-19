@@ -63,6 +63,17 @@ def test_bootstrap_axis():
     assert_equal(out_axis.shape, (n_boot, 20))
 
 
+def test_smooth_bootstrap():
+    """Test smooth bootstrap."""
+    x = np.random.randn(15)
+    n_boot = 100
+    out_normal = stat.bootstrap(x, n_boot=n_boot, func=np.median)
+    out_smooth = stat.bootstrap(x, n_boot=n_boot,
+                                smooth=True, func=np.median)
+    assert(np.median(out_normal) in x)
+    assert(not np.median(out_smooth) in x)
+
+
 def test_bootstrap_ols():
     """Test bootstrap of OLS model fit."""
     ols_fit = lambda X, y: np.dot(np.dot(np.linalg.inv(

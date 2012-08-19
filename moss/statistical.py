@@ -16,6 +16,10 @@ def bootstrap(*args, **kwargs):
             number of iterations
         axis : int
             will pass axis to ``func``
+        smooth : bool
+            if True, performs a smoothed bootstrap
+            (draws samples from a kernel destiny estimate)
+            only works for one-dimensional inputs
         func : callable
             function to call on the args that are passed in
 
@@ -34,6 +38,7 @@ def bootstrap(*args, **kwargs):
     n_boot = kwargs.get("n_boot", 10000)
     func = kwargs.get("func", np.mean)
     axis = kwargs.get("axis", None)
+    smooth = kwargs.get("smooth", False)
     if axis is None:
         func_kwargs = dict()
     else:
@@ -41,9 +46,14 @@ def bootstrap(*args, **kwargs):
 
     # Do the bootstrap
     boot_dist = []
+    if smooth:
+        kde = [stats.gaussian_kde(a) for a in args]
     for i in xrange(int(n_boot)):
         resampler = np.random.randint(0, n, n)
-        sample = [a[resampler] for a in args]
+        if smooth:
+            sample = [a.resample(n) for a in kde]
+        else:
+            sample = [a[resampler] for a in args]
         boot_dist.append(func(*sample, **func_kwargs))
     return np.array(boot_dist)
 
