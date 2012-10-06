@@ -1,16 +1,15 @@
-import os.path as op
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def plot_mask_distribution(fname, ax=None, hist=False):
-    """Plot the distribution of voxel coordinates in a mask file.
+def plot_mask_distribution(mask_img, hist=False):
+    """Plot the distribution of voxel coordinates in a mask image or file.
 
     Parameters
     ----------
-    fname : string
-        path to binary mask file
+    fname : string or nibabel image
+        path to binary mask file or image object with data and affine
 
     Returns
     -------
@@ -20,7 +19,10 @@ def plot_mask_distribution(fname, ax=None, hist=False):
     """
     if ax is None:
         ax = plt.subplot(111)
-    img = nib.load(fname)
+    if isinstance(mask_img, basestring):
+        img = nib.load(mask_img)
+    else:
+        img = mask_img
     mask = img.get_data()
     aff = img.get_affine()
     vox = np.where(mask)
@@ -33,5 +35,4 @@ def plot_mask_distribution(fname, ax=None, hist=False):
         else:
             sns.kdeplot(data, shade=True, label=axis, color=color, ax=ax)
     ax.legend()
-    ax.set_title(op.basename(fname))
     return ax
