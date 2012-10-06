@@ -3,13 +3,17 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def plot_mask_distribution(mask_img, hist=False):
+def plot_mask_distribution(mask_img, hist=False, ax=None):
     """Plot the distribution of voxel coordinates in a mask image or file.
 
     Parameters
     ----------
     fname : string or nibabel image
         path to binary mask file or image object with data and affine
+    hist : bool, optional
+        if True plots histogram instead of shading density plot
+    ax : matplotlib axis, optional
+        plots on this axis, if given
 
     Returns
     -------
