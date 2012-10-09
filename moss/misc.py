@@ -3,6 +3,24 @@ import numpy as np
 from IPython.core.display import Javascript, display
 
 
+def df_to_struct(df):
+    """Converts a DataFrame to RPy-compatible structured array.
+
+    There is a pull request with this code open on IPython,
+    so this is likely temporary (but may be useful elsewhere).
+
+    """
+    struct_array = df.to_records()
+    arr_dtype = struct_array.dtype.descr
+    for i, dtype in enumerate(arr_dtype):
+        if dtype[1] == np.dtype('object'):
+            arr_dtype[i] = (dtype[0], dtype[1].replace("|O", "|S"))
+
+    struct_array = np.asarray([tuple(d) for d in struct_array], dtype=arr_dtype)
+
+    return struct_array
+
+
 def make_master_schedule(evs):
     """Take a list of event specifications and make one schedule.
 
