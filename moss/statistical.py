@@ -183,3 +183,46 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
     data[:] = np.dot(F, data)
 
     return data.squeeze()
+
+
+def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
+    """Nonparametric one-sample T test through randomization.
+
+    On each iteration, randomly flip the signs of the values in ``a``
+    and test the mean against 0.
+
+    Parameters
+    ----------
+    a : sequence
+        input data
+    n_iter : int
+        number of randomization iterations
+    random_seed :int or None
+        seed to use for random number generator
+    return_dist : bool
+        if True will return the distribution of means
+
+    Returns
+    -------
+    pct : float
+        one-tailed p value that the real mean is greater than 0
+        (1 - the percentile of the actual mean in the null dist)
+    dist : ndarray, optional
+        if return_dist is True, this will return the full null distribution
+
+    """
+    a = np.asarray(a)
+    rs = np.random.RandomState(random_seed)
+    n_samp = len(a)
+
+    means = []
+    for i in xrange(int(n_iter)):
+        flipper = (rs.uniform(size=n_samp) > 0.5) * 2 - 1
+        sample = a * flipper
+        means.append(sample.mean())
+
+    means = np.array(means)
+    pct = (100 - stats.percentileofscore(means, a.mean())) / 100
+    if return_dist:
+        return pct, means
+    return pct
