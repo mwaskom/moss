@@ -197,16 +197,18 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
         input data
     n_iter : int
         number of randomization iterations
-    random_seed :int or None
+    random_seed : int or None
         seed to use for random number generator
     return_dist : bool
         if True will return the distribution of means
 
     Returns
     -------
-    pct : float
-        one-tailed p value that the real mean is greater than 0
-        (1 - the percentile of the actual mean in the null dist)
+    obs_t : float
+        group mean T statistic
+    obs_p : float
+        one-tailed p value that the population mean is greater than 0
+        (1 - the percentile of the observed mean in the null dist)
     dist : ndarray, optional
         if return_dist is True, this will return the full null distribution
 
@@ -214,15 +216,19 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
     a = np.asarray(a)
     rs = np.random.RandomState(random_seed)
     n_samp = len(a)
+    err_denom = np.sqrt(n_samp - 1)
 
-    means = []
+    t_dist = []
     for i in xrange(int(n_iter)):
         flipper = (rs.uniform(size=n_samp) > 0.5) * 2 - 1
         sample = a * flipper
-        means.append(sample.mean())
+        std_err = sample.std() / err_denom
+        t_i = sample.mean() / std_err
+        t_dist.append(t_i)
 
-    means = np.array(means)
-    pct = (100 - stats.percentileofscore(means, a.mean())) / 100
+    t_dist = np.array(t_dist)
+    obs_t = a.mean() / (a.std() / err_denom)
+    obs_p = (100 - stats.percentileofscore(t_dist, obs_t)) / 100
     if return_dist:
-        return pct, means
-    return pct
+        return obs_t, obs_p, t_dist
+    return obs_t, obs_p

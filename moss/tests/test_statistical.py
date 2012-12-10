@@ -234,12 +234,15 @@ def test_filter_copy():
 def test_randomize_onesample():
     """Test performance of randomize_onesample."""
     a_zero = np.random.normal(0, 1, 50)
-    pct_zero = stat.randomize_onesample(a_zero)
-    nose.tools.assert_greater(pct_zero, 0.05)
+    t_zero, p_zero = stat.randomize_onesample(a_zero)
+    nose.tools.assert_greater(p_zero, 0.05)
 
     a_five = np.random.normal(5, 1, 50)
-    pct_five = stat.randomize_onesample(a_five)
-    nose.tools.assert_greater(0.05, pct_five)
+    t_five, p_five = stat.randomize_onesample(a_five)
+    nose.tools.assert_greater(0.05, p_five)
+
+    t_scipy, p_scipy = sp.stats.ttest_1samp(a_five, 0)
+    assert_equal(t_scipy, t_five)
 
 
 def test_randomize_onesample_range():
@@ -247,25 +250,25 @@ def test_randomize_onesample_range():
     for i in xrange(100):
         a = np.random.normal(np.random.randint(-10, 10),
                              np.random.uniform(.5, 3), 100)
-        pct = stat.randomize_onesample(a, 100)
-        nose.tools.assert_greater_equal(1, pct)
-        nose.tools.assert_greater_equal(pct, 0)
+        t, p = stat.randomize_onesample(a, 100)
+        nose.tools.assert_greater_equal(1, p)
+        nose.tools.assert_greater_equal(p, 0)
 
 
 def test_randomize_onesample_getdist():
     """Test that we can get the null distribution if we ask for it."""
     a = np.random.normal(0, 1, 20)
     out = stat.randomize_onesample(a, return_dist=True)
-    assert_equal(len(out), 2)
+    assert_equal(len(out), 3)
 
 
 def test_randomize_onesample_iters():
     """Make sure we get the right number of samples."""
     a = np.random.normal(0, 1, 20)
-    pct, samples = stat.randomize_onesample(a, return_dist=True)
+    t, p, samples = stat.randomize_onesample(a, return_dist=True)
     assert_equal(len(samples), 10000)
     for n in np.random.randint(5, 1e4, 5):
-        pct, samples = stat.randomize_onesample(a, n, return_dist=True)
+        t, p, samples = stat.randomize_onesample(a, n, return_dist=True)
         assert_equal(len(samples), n)
 
 
@@ -273,6 +276,6 @@ def test_randomize_onesample_seed():
     """Test that we can seed the random state and get the same distribution."""
     a = np.random.normal(0, 1, 20)
     seed = 42
-    pct_a, samples_a = stat.randomize_onesample(a, 1000, seed, True)
-    pct_b, samples_b = stat.randomize_onesample(a, 1000, seed, True)
+    t_a, p_a, samples_a = stat.randomize_onesample(a, 1000, seed, True)
+    t_b, t_b, samples_b = stat.randomize_onesample(a, 1000, seed, True)
     assert_array_equal(samples_a, samples_b)
