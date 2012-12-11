@@ -215,9 +215,9 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
 
     """
     a = np.asarray(a)
-    rs = np.random.RandomState(random_seed)
     n_samp = len(a)
 
+    rs = np.random.RandomState(random_seed)
     flipper = (rs.uniform(size=(n_samp, n_iter)) > 0.5) * 2 - 1
     rand_dist = a[:, None] * flipper
 
