@@ -3,6 +3,7 @@ from __future__ import division
 import numpy as np
 import scipy as sp
 from scipy import stats
+import statsmodels.api as sm
 
 
 def bootstrap(*args, **kwargs):
@@ -216,19 +217,21 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
     a = np.asarray(a)
     rs = np.random.RandomState(random_seed)
     n_samp = len(a)
+
+    flipper = (rs.uniform(size=(n_iter, n_samp)) > 0.5) * 2 - 1
+    rand_dist = np.zeros((n_iter, n_samp))
+
+    for i, flip in enumerate(flipper):
+        rand_dist[i] = a * flip
+
     err_denom = np.sqrt(n_samp - 1)
+    std_err = rand_dist.std(axis=1) / err_denom
+    t_dist = rand_dist.mean(axis=1) / std_err
 
-    t_dist = []
-    for i in xrange(int(n_iter)):
-        flipper = (rs.uniform(size=n_samp) > 0.5) * 2 - 1
-        sample = a * flipper
-        std_err = sample.std() / err_denom
-        t_i = sample.mean() / std_err
-        t_dist.append(t_i)
-
-    t_dist = np.array(t_dist)
     obs_t = a.mean() / (a.std() / err_denom)
-    obs_p = (100 - stats.percentileofscore(t_dist, obs_t)) / 100
+    cdf = sm.distributions.ECDF(t_dist)
+    obs_p = 1 - cdf(obs_t)
+
     if return_dist:
         return obs_t, obs_p, t_dist
     return obs_t, obs_p
