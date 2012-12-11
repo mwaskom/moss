@@ -1,5 +1,6 @@
 """Miscellaneous utility functions."""
 import numpy as np
+from scipy import stats
 from IPython.core.display import Javascript, display
 
 
@@ -74,3 +75,10 @@ def sig_stars(p):
     elif p < 0.1:
         return "."
     return ""
+
+
+def iqr(a):
+    """Calculate the IQR for an array of numbers."""
+    q1 = stats.scoreatpercentile(a, 25)
+    q3 = stats.scoreatpercentile(a, 75)
+    return q3 - q1
