@@ -218,15 +218,12 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
     rs = np.random.RandomState(random_seed)
     n_samp = len(a)
 
-    flipper = (rs.uniform(size=(n_iter, n_samp)) > 0.5) * 2 - 1
-    rand_dist = np.zeros((n_iter, n_samp))
-
-    for i, flip in enumerate(flipper):
-        rand_dist[i] = a * flip
+    flipper = (rs.uniform(size=(n_samp, n_iter)) > 0.5) * 2 - 1
+    rand_dist = a[:, None] * flipper
 
     err_denom = np.sqrt(n_samp - 1)
-    std_err = rand_dist.std(axis=1) / err_denom
-    t_dist = rand_dist.mean(axis=1) / std_err
+    std_err = rand_dist.std(axis=0) / err_denom
+    t_dist = rand_dist.mean(axis=0) / std_err
 
     obs_t = a.mean() / (a.std() / err_denom)
     cdf = sm.distributions.ECDF(t_dist)
