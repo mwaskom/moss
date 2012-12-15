@@ -232,3 +232,60 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
     if return_dist:
         return obs_t, obs_p, t_dist
     return obs_t, obs_p
+
+
+def randomize_corrmat(a, corrected=True, n_iter=1000, random_seed=None,
+                      return_dist=False):
+    """Test the significance of set of correlations with permutations.
+
+    Parameters
+    ----------
+    a : n_vars x n_obs array
+        array with variables as rows
+    corrected : boolean
+        if True reports p values with respect to the max stat distribution
+    n_iter : int
+        number of permutation iterations
+    random_seed : int or None
+        seed for RNG
+    return_dist : bool
+        if True, return n_vars x n_vars x n_iter
+
+    Returns
+    -------
+    p_mat : float
+        array of probabilites for actual correlation from null CDF
+
+    """
+    rs = np.random.RandomState(random_seed)
+
+    a = np.asarray(a)
+    flat_a = a.ravel()
+    n_vars, n_obs = a.shape
+
+    null_dist = np.empty((n_vars, n_vars, n_iter))
+    for i_i in xrange(n_iter):
+        perm_i = np.concatenate([rs.permutation(n_obs) + (v * n_obs)
+                                 for v in range(n_vars)])
+        a_i = flat_a[perm_i].reshape(n_vars, n_obs)
+        null_dist[..., i_i] = np.corrcoef(a_i)
+    real_corr = np.corrcoef(a)
+
+    p_mat = np.zeros((n_vars, n_vars))
+    upper_tri = np.triu_indices(n_vars, 1)
+
+    if corrected:
+        max_dist = null_dist[upper_tri].max(axis=0)
+        cdf = sm.distributions.ECDF(max_dist)
+        for i, j in zip(*upper_tri):
+            p_mat[i, j] = cdf(real_corr[i, j])
+    else:
+        for i, j in zip(*upper_tri):
+            cdf = sm.distributions.ECDF(null_dist[i, j])
+            p_mat[i, j] = cdf(real_corr[i, j])
+
+    p_mat += p_mat.T
+
+    if return_dist:
+        return p_mat, null_dist
+    return p_mat

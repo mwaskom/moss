@@ -1,8 +1,10 @@
 import numpy as np
 import scipy as sp
+from scipy import stats as spstats
 from matplotlib.mlab import psd
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
+import numpy.testing as npt
 import nose.tools
 from nose.tools import assert_equal, raises
 
@@ -242,7 +244,7 @@ def test_randomize_onesample():
     nose.tools.assert_greater(0.05, p_five)
 
     t_scipy, p_scipy = sp.stats.ttest_1samp(a_five, 0)
-    assert_equal(t_scipy, t_five)
+    nose.tools.assert_almost_equal(t_scipy, t_five)
 
 
 def test_randomize_onesample_range():
@@ -279,3 +281,58 @@ def test_randomize_onesample_seed():
     t_a, p_a, samples_a = stat.randomize_onesample(a, 1000, seed, True)
     t_b, t_b, samples_b = stat.randomize_onesample(a, 1000, seed, True)
     assert_array_equal(samples_a, samples_b)
+
+
+def test_randomize_corrmat():
+    """Test the correctness of the correlation matrix p values."""
+    a = np.random.randn(30)
+    b = a + np.random.rand(30) * 3
+    c = np.random.randn(30)
+    d = [a, b, c]
+
+    p_mat, dist = stat.randomize_corrmat(d, corrected=False, return_dist=True)
+    nose.tools.assert_greater(p_mat[1, 0], p_mat[2, 0])
+
+    corrmat = np.corrcoef(d)
+    pctile = spstats.percentileofscore(dist[2, 1], corrmat[2, 1])
+    nose.tools.assert_almost_equal(p_mat[2, 1] * 100, pctile)
+
+    d[1] = -a + np.random.rand(30)
+    p_mat = stat.randomize_corrmat(d)
+    nose.tools.assert_greater(0.05, p_mat[1, 0])
+
+
+def test_randomize_corrmat_dist():
+    """Test that the distribution looks right."""
+    a = np.random.randn(3, 20)
+    for n_i in [5, 10]:
+        p_mat, dist = stat.randomize_corrmat(a, n_iter=n_i, return_dist=True)
+        assert_equal(n_i, dist.shape[-1])
+
+    p_mat, dist = stat.randomize_corrmat(a, n_iter=10000, return_dist=True)
+
+    diag_mean = dist[0, 0].mean()
+    assert_equal(diag_mean, 1)
+
+    off_diag_mean = dist[0, 1].mean()
+    nose.tools.assert_greater(0.05, off_diag_mean)
+
+    skew, skewp = spstats.skewtest(dist[0, 1])
+    nose.tools.assert_greater(skewp, 0.1)
+
+
+def test_randomize_corrmat_correction():
+    """Test that FWE correction works."""
+    a = np.random.randn(3, 20)
+    p_mat = stat.randomize_corrmat(a, False)
+    p_mat_corr = stat.randomize_corrmat(a, True)
+    triu = np.triu_indices(3, 1)
+    npt.assert_array_less(p_mat_corr[triu], p_mat[triu])
+
+
+def test_randomise_corrmat_seed():
+    """Test that we can seed the corrmat randomization."""
+    a = np.random.randn(3, 20)
+    _, dist1 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
+    _, dist2 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
+    assert_array_equal(dist1, dist2)
