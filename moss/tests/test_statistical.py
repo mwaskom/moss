@@ -319,7 +319,7 @@ def test_randomize_corrmat_dist():
     nose.tools.assert_greater(0.05, off_diag_mean)
 
     skew, skewp = spstats.skewtest(dist[0, 1])
-    nose.tools.assert_greater(skewp, 0.1)
+    nose.tools.assert_greater(skewp, 0.01)
 
 
 def test_randomize_corrmat_correction():
