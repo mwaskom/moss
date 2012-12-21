@@ -299,11 +299,12 @@ def test_randomize_corrmat():
     c = np.random.randn(30)
     d = [a, b, c]
 
-    p_mat, dist = stat.randomize_corrmat(d, corrected=False, return_dist=True)
-    nose.tools.assert_greater(p_mat[1, 0], p_mat[2, 0])
+    p_mat, dist = stat.randomize_corrmat(d, tail="upper", corrected=False,
+                                         return_dist=True)
+    nose.tools.assert_greater(p_mat[2, 0], p_mat[1, 0])
 
     corrmat = np.corrcoef(d)
-    pctile = spstats.percentileofscore(dist[2, 1], corrmat[2, 1])
+    pctile = 100 - spstats.percentileofscore(dist[2, 1], corrmat[2, 1])
     nose.tools.assert_almost_equal(p_mat[2, 1] * 100, pctile)
 
     d[1] = -a + np.random.rand(30)
@@ -327,16 +328,30 @@ def test_randomize_corrmat_dist():
     nose.tools.assert_greater(0.05, off_diag_mean)
 
     skew, skewp = spstats.skewtest(dist[0, 1])
-    nose.tools.assert_greater(skewp, 0.1)
+    nose.tools.assert_greater(skewp, 0.01)
 
 
 def test_randomize_corrmat_correction():
     """Test that FWE correction works."""
     a = np.random.randn(3, 20)
-    p_mat = stat.randomize_corrmat(a, False)
-    p_mat_corr = stat.randomize_corrmat(a, True)
+    p_mat = stat.randomize_corrmat(a, "upper", False)
+    p_mat_corr = stat.randomize_corrmat(a, "upper", True)
     triu = np.triu_indices(3, 1)
-    npt.assert_array_less(p_mat_corr[triu], p_mat[triu])
+    npt.assert_array_less(p_mat[triu], p_mat_corr[triu])
+
+
+def test_randimoize_corrmat_tails():
+    """Test that the tail argument works."""
+    a = np.random.randn(30)
+    b = a + np.random.rand(30) * 8
+    c = np.random.randn(30)
+    d = [a, b, c]
+
+    p_mat_b = stat.randomize_corrmat(d, "both", False, random_seed=0)
+    p_mat_u = stat.randomize_corrmat(d, "upper", False, random_seed=0)
+    p_mat_l = stat.randomize_corrmat(d, "lower", False, random_seed=0)
+    assert_equal(p_mat_b[0 ,1], p_mat_u[0, 1] * 2)
+    assert_equal(p_mat_l[0, 1], 1 - p_mat_u[0, 1])
 
 
 def test_randomise_corrmat_seed():
@@ -345,6 +360,13 @@ def test_randomise_corrmat_seed():
     _, dist1 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
     _, dist2 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
     assert_array_equal(dist1, dist2)
+
+
+@raises(ValueError)
+def test_randomize_corrmat_tail_error():
+    """Test that we are strict about tail paramete."""
+    a = np.random.randn(3, 30)
+    stat.randomize_corrmat(a, "hello")
 
 
 def test_randomize_classifier():

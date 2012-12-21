@@ -236,14 +236,19 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
     return obs_t, obs_p
 
 
-def randomize_corrmat(a, corrected=True, n_iter=1000, random_seed=None,
-                      return_dist=False):
+def randomize_corrmat(a, tail="both", corrected=True, n_iter=1000,
+                      random_seed=None, return_dist=False):
     """Test the significance of set of correlations with permutations.
+
+    By default this corrects for multiple comparisons across one side
+    of the matrix.
 
     Parameters
     ----------
     a : n_vars x n_obs array
         array with variables as rows
+    tail : both | upper | lower
+        whether test should be two-tailed, or which tail to integrate over
     corrected : boolean
         if True reports p values with respect to the max stat distribution
     n_iter : int
@@ -259,34 +264,68 @@ def randomize_corrmat(a, corrected=True, n_iter=1000, random_seed=None,
         array of probabilites for actual correlation from null CDF
 
     """
+    if tail not in ["upper", "lower", "both"]:
+        raise ValueError("'tail' must be 'upper', 'lower', or 'both'")
+
     rs = np.random.RandomState(random_seed)
 
     a = np.asarray(a)
     flat_a = a.ravel()
     n_vars, n_obs = a.shape
 
+    # Do the permutations to establish a null distribution
     null_dist = np.empty((n_vars, n_vars, n_iter))
     for i_i in xrange(n_iter):
         perm_i = np.concatenate([rs.permutation(n_obs) + (v * n_obs)
                                  for v in range(n_vars)])
         a_i = flat_a[perm_i].reshape(n_vars, n_obs)
         null_dist[..., i_i] = np.corrcoef(a_i)
+
+    # Get the observed correlation values
     real_corr = np.corrcoef(a)
 
+    # Figure out p values based on the permutation distribution
     p_mat = np.zeros((n_vars, n_vars))
     upper_tri = np.triu_indices(n_vars, 1)
 
     if corrected:
-        max_dist = null_dist[upper_tri].max(axis=0)
+        if tail == "both":
+            max_dist = np.abs(null_dist[upper_tri]).max(axis=0)
+        elif tail == "lower":
+            max_dist = null_dist[upper_tri].min(axis=0)
+        elif tail == "upper":
+            max_dist = null_dist[upper_tri].max(axis=0)
+
         cdf = sm.distributions.ECDF(max_dist)
+
         for i, j in zip(*upper_tri):
-            p_mat[i, j] = cdf(real_corr[i, j])
+            observed = real_corr[i, j]
+            if tail == "both":
+                p_ij = 1 - cdf(abs(observed))
+            elif tail == "lower":
+                p_ij = cdf(observed)
+            elif tail == "upper":
+                p_ij = 1 - cdf(observed)
+            p_mat[i, j] = p_ij
+
     else:
         for i, j in zip(*upper_tri):
-            cdf = sm.distributions.ECDF(null_dist[i, j])
-            p_mat[i, j] = cdf(real_corr[i, j])
 
+            null_corrs = null_dist[i, j]
+            cdf = sm.distributions.ECDF(null_corrs)
+
+            observed = real_corr[i, j]
+            if tail == "both":
+                p_ij = 2 * (1 - cdf(abs(observed)))
+            elif tail == "lower":
+                p_ij = cdf(observed)
+            elif tail == "upper":
+                p_ij = 1 - cdf(observed)
+            p_mat[i, j] = p_ij
+
+    # Make p matrix symettrical with nans on the diagonal
     p_mat += p_mat.T
+    p_mat[np.diag_indices(n_vars)] = np.nan
 
     if return_dist:
         return p_mat, null_dist
