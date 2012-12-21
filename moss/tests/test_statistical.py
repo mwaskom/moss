@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy import stats as spstats
 from matplotlib.mlab import psd
+from sklearn.naive_bayes import GaussianNB
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 import numpy.testing as npt
@@ -14,6 +15,14 @@ from .. import statistical as stat
 a_norm = np.random.randn(100)
 
 a_range = np.arange(101)
+
+datasets = [dict(X=spstats.norm(0, 1).rvs((24, 12)),
+                 y=spstats.bernoulli(.5).rvs(24),
+                 runs=np.repeat([0, 1], 12)) for i in range(3)]
+
+datasets_3d = [dict(X=spstats.norm(0, 1).rvs((4, 24, 12)),
+                    y=spstats.bernoulli(.5).rvs(24),
+                    runs=np.repeat([0, 1], 12)) for i in range(3)]
 
 
 def test_bootstrap():
@@ -336,3 +345,57 @@ def test_randomise_corrmat_seed():
     _, dist1 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
     _, dist2 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
     assert_array_equal(dist1, dist2)
+
+
+def test_randomize_classifier():
+    """Test basic functions of randomize_classifier."""
+    data = dict(X=spstats.norm(0, 1).rvs((100, 12)),
+                y=spstats.bernoulli(.5).rvs(100),
+                runs=np.repeat([0, 1], 50))
+    model = GaussianNB()
+    p_vals, perm_vals = stat.randomize_classifier(data, model,
+                                                  return_dist=True)
+    p_min, p_max = p_vals.min(), p_vals.max()
+    perm_mean = perm_vals.mean()
+
+    # Test that the p value are well behaved
+    nose.tools.assert_greater_equal(1, p_max)
+    nose.tools.assert_greater_equal(p_min, 0)
+
+    # Test that the mean is close to chance (this is probabilistic)
+    nose.tools.assert_greater(.1, np.abs(perm_mean - 0.5))
+
+    # Test that the distribution looks normal (this is probabilistic)
+    val, p = spstats.normaltest(perm_vals)
+    nose.tools.assert_greater(p, 0.05)
+
+
+def test_randomize_classifier_dimension():
+    """Test that we can have a time dimension and it's where we expect."""
+    data = datasets_3d[0]
+    n_perm = 30
+    model = GaussianNB()
+    p_vals, perm_vals = stat.randomize_classifier(data, model, n_perm,
+                                                  return_dist=True)
+    nose.tools.assert_equal(len(p_vals), len(data["X"]))
+    nose.tools.assert_equal(perm_vals.shape, (n_perm, len(data["X"])))
+
+
+def test_randomize_classifier_seed():
+    """Test that we can give a particular random seed to the permuter."""
+    data = datasets[0]
+    model = GaussianNB()
+    seed = 1
+    out_a = stat.randomize_classifier(data, model, random_seed=seed)
+    out_b = stat.randomize_classifier(data, model, random_seed=seed)
+    assert_array_equal(out_a, out_b)
+
+
+def test_randomize_classifier_number():
+    """Test size of randomize_classifier vectors."""
+    data = datasets[0]
+    model = GaussianNB()
+    for n_iter in np.random.randint(10, 250, 5):
+        p_vals, perm_dist = stat.randomize_classifier(data, model, n_iter,
+                                                      return_dist=True)
+        nose.tools.assert_equal(len(perm_dist), n_iter)
