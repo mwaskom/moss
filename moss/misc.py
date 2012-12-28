@@ -79,6 +79,7 @@ def sig_stars(p):
 
 def iqr(a):
     """Calculate the IQR for an array of numbers."""
+    a = np.asarray(a)
     q1 = stats.scoreatpercentile(a, 25)
     q3 = stats.scoreatpercentile(a, 75)
     return q3 - q1
