@@ -50,12 +50,12 @@ def bootstrap(*args, **kwargs):
     # Do the bootstrap
     boot_dist = []
     if smooth:
-        kde = [stats.gaussian_kde(a) for a in args]
+        kde = [stats.gaussian_kde(np.transpose(a)) for a in args]
     for i in xrange(int(n_boot)):
-        resampler = np.random.randint(0, n, n)
         if smooth:
-            sample = [a.resample(n) for a in kde]
+            sample = [a.resample(n).T for a in kde]
         else:
+            resampler = np.random.randint(0, n, n)
             sample = [a[resampler] for a in args]
         boot_dist.append(func(*sample, **func_kwargs))
     return np.array(boot_dist)
