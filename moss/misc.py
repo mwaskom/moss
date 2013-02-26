@@ -5,21 +5,43 @@ from IPython.core.display import Javascript, display
 
 
 def df_to_struct(df):
-    """Converts a DataFrame to RPy-compatible structured array.
-
-    There is a pull request with this code open on IPython,
-    so this is likely temporary (but may be useful elsewhere).
-
-    """
+    """Converts a DataFrame to RPy-compatible structured array."""
     struct_array = df.to_records()
     arr_dtype = struct_array.dtype.descr
     for i, dtype in enumerate(arr_dtype):
         if dtype[1] == np.dtype('object'):
             arr_dtype[i] = (dtype[0], dtype[1].replace("|O", "|S"))
 
-    struct_array = np.asarray([tuple(d) for d in struct_array], dtype=arr_dtype)
+    struct_array = np.asarray([tuple(d) for d in struct_array],
+                              dtype=arr_dtype)
 
     return struct_array
+
+
+def df_ttest(df, by, key, paired=False, nice=True, **kwargs):
+    """Perform a T-test over a DataFrame groupby."""
+    test_kind = "rel" if paired else "ind"
+    test_func = getattr(stats, "ttest_" + test_kind)
+    args = [d[key] for i, d in df.groupby(by)]
+    t, p = test_func(*args, **kwargs)
+    dof = len(df) - 1 if paired else len(df) - 2
+    if nice:
+        return "t(%d) = %.3f; p = %.3g%s" % (dof, t, p, sig_stars(p))
+    else:
+        return t, p
+
+
+def df_oneway(df, by, key, nice=True, **kwargs):
+    """Perform a oneway analysis over variance on a DataFrame groupby."""
+    args = [d[key] for i, d in df.groupby(by)]
+    f, p = stats.oneway(*args, **kwargs)
+    dof_b = len(args) - 1
+    dof_w = len(df) - dof_b
+    if nice:
+        return "F(%d, %d) = %.3f; p = %.3g%s" % (dof_b, dof_w, f,
+                                                 p, sig_stars(p))
+    else:
+        return f, p
 
 
 def make_master_schedule(evs):
