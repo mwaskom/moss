@@ -432,6 +432,11 @@ def test_transition_probabilities():
     actual = stat.transition_probabilities(sched)
     npt.assert_array_equal(expected, actual)
 
+    sched = [0, 0, 1, 1]
+    expected = pd.DataFrame([[.5, .5], [0, 1]])
+    actual = stat.transition_probabilities(sched)
+    npt.assert_array_equal(expected, actual)
+
     a = np.random.rand(100) < .5
     a = np.where(a, "foo", "bar")
     out = stat.transition_probabilities(a)
