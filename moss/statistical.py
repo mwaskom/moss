@@ -3,6 +3,7 @@ from __future__ import division
 import numpy as np
 import scipy as sp
 from scipy import stats
+import pandas as pd
 import statsmodels.api as sm
 from sklearn.cross_validation import (cross_val_score,
                                       LeaveOneOut, LeaveOneLabelOut)
@@ -427,3 +428,32 @@ def randomize_classifier(data, model, n_iter=1000, cv_method="run",
     if return_dist:
         return p_vals, null_dist
     return p_vals
+
+
+def transition_probabilities(sched):
+    """Return probability of moving from row trial to col trial.
+
+    Parameters
+    ----------
+    sched : array or pandas Series
+        event schedule
+
+    Returns
+    -------
+    trans_probs : pandas DataFrame
+
+    """
+    sched = np.asarray(sched)
+    trial_types = np.sort(np.unique(sched))
+    n_types = len(trial_types)
+    trans_probs = pd.DataFrame(columns=trial_types, index=trial_types)
+
+    for type in trial_types:
+        type_probs = pd.Series(np.zeros(n_types), index=trial_types)
+        idx, = np.nonzero(sched[:-1] == type)
+        idx += 1
+        type_probs.update(pd.value_counts(sched[idx]))
+        trans_probs[type] = type_probs
+
+    trans_probs = trans_probs.divide(pd.value_counts(sched[:-1]))
+    return trans_probs.T

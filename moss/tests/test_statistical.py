@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy import stats as spstats
 from matplotlib.mlab import psd
+import pandas as pd
 from sklearn.naive_bayes import GaussianNB
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
@@ -421,3 +422,18 @@ def test_randomize_classifier_number():
         p_vals, perm_dist = stat.randomize_classifier(data, model, n_iter,
                                                       return_dist=True)
         nose.tools.assert_equal(len(perm_dist), n_iter)
+
+
+def test_transition_probabilities():
+
+    # Test basic
+    sched = [0, 1, 0, 1]
+    expected = pd.DataFrame([[0, 1], [1, 0]])
+    actual = stat.transition_probabilities(sched)
+    npt.assert_array_equal(expected, actual)
+
+    a = np.random.rand(100) < .5
+    a = np.where(a, "foo", "bar")
+    out = stat.transition_probabilities(a)
+    npt.assert_equal(out.columns.tolist(), ["bar", "foo"])
+    npt.assert_equal(out.columns, out.index)
