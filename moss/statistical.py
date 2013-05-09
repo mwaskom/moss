@@ -99,6 +99,12 @@ def percentiles(a, pcts, axis=None):
     return scores
 
 
+def ci(a, which=95, axis=None):
+    """Return a percentile range from an array of values."""
+    p = 50 - which / 2, 50 + which / 2
+    return percentiles(a, p, axis)
+
+
 def add_constant(a):
     """Add a constant term to a design matrix.
 

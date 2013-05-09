@@ -172,6 +172,14 @@ def test_percentiles_axis():
     assert_equal(2, len(out3))
 
 
+def test_ci():
+    """Test ci against percentiles."""
+    a = np.random.randn(100)
+    p = stat.percentiles(a, [2.5, 97.5])
+    c = stat.ci(a, 95)
+    assert_array_equal(p, c)
+
+
 def test_add_constant():
     """Test the add_constant function."""
     a = np.random.randn(10, 5)
