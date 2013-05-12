@@ -325,6 +325,16 @@ def test_randomize_onesample_correction():
     npt.assert_array_less(p_un, p_corr)
 
 
+def test_randomize_onesample_h0():
+    """Test that we can supply a null hypothesis for the group mean."""
+    a = np.random.normal(4, 1, 100)
+    t, p = stat.randomize_onesample(a, 1000, h_0=0)
+    assert p < 0.01
+
+    t, p = stat.randomize_onesample(a, 1000, h_0=4)
+    assert p > 0.01
+
+
 def test_randomize_corrmat():
     """Test the correctness of the correlation matrix p values."""
     a = np.random.randn(30)

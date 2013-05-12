@@ -195,8 +195,8 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
     return data.squeeze()
 
 
-def randomize_onesample(a, n_iter=10000, corrected=True, random_seed=None,
-                        return_dist=False):
+def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
+                        random_seed=None, return_dist=False):
     """Nonparametric one-sample T test through randomization.
 
     On each iteration, randomly flip the signs of the values in ``a``
@@ -212,6 +212,8 @@ def randomize_onesample(a, n_iter=10000, corrected=True, random_seed=None,
         input data
     corrected : boolean
         correct the p values in the case of multiple tests
+    h_0 : float
+        null hypothesis for the group mean
     n_iter : int
         number of randomization iterations
     random_seed : int or None
@@ -234,6 +236,8 @@ def randomize_onesample(a, n_iter=10000, corrected=True, random_seed=None,
     if a.ndim < 2:
         a = a.reshape(-1, 1)
     n_samp, n_test = a.shape
+
+    a -= h_0
 
     rs = np.random.RandomState(random_seed)
     flipper = (rs.uniform(size=(n_samp, n_iter)) > 0.5) * 2 - 1
