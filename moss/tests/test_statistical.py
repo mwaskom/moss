@@ -296,9 +296,33 @@ def test_randomize_onesample_seed():
     """Test that we can seed the random state and get the same distribution."""
     a = np.random.normal(0, 1, 20)
     seed = 42
-    t_a, p_a, samples_a = stat.randomize_onesample(a, 1000, seed, True)
-    t_b, t_b, samples_b = stat.randomize_onesample(a, 1000, seed, True)
+    t_a, p_a, samples_a = stat.randomize_onesample(a, 1000,
+                                                   random_seed=seed,
+                                                   return_dist=True)
+    t_b, t_b, samples_b = stat.randomize_onesample(a, 1000,
+                                                   random_seed=seed,
+                                                   return_dist=True)
     assert_array_equal(samples_a, samples_b)
+
+
+def test_randomize_onesample_multitest():
+    """Test that randomizing over multiple tests works."""
+    a = np.random.normal(0, 1, (20, 5))
+    t, p = stat.randomize_onesample(a, 1000)
+    assert_equal(len(t), 5)
+    assert_equal(len(p), 5)
+
+    t, p, dist = stat.randomize_onesample(a, 1000, return_dist=True)
+    assert_equal(dist.shape, (5, 1000))
+
+
+def test_randomize_onesample_correction():
+    """Test that maximum based correction (seems to) work."""
+    a = np.random.normal(0, 1, (100, 10))
+    t_un, p_un = stat.randomize_onesample(a, 1000, corrected=False)
+    t_corr, p_corr = stat.randomize_onesample(a, 1000, corrected=True)
+    assert_array_equal(t_un, t_corr)
+    npt.assert_array_less(p_un, p_corr)
 
 
 def test_randomize_corrmat():

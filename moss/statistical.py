@@ -195,16 +195,23 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
     return data.squeeze()
 
 
-def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
+def randomize_onesample(a, n_iter=10000, corrected=True, random_seed=None,
+                        return_dist=False):
     """Nonparametric one-sample T test through randomization.
 
     On each iteration, randomly flip the signs of the values in ``a``
     and test the mean against 0.
 
+    If ``a`` is two-dimensional, it is assumed to be shaped as
+    (n_observations, n_tests), and a max-statistic based approach
+    is used to correct the p values for multiple comparisons over tests.
+
     Parameters
     ----------
     a : sequence
         input data
+    corrected : boolean
+        correct the p values in the case of multiple tests
     n_iter : int
         number of randomization iterations
     random_seed : int or None
@@ -224,19 +231,34 @@ def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
 
     """
     a = np.asarray(a)
-    n_samp = len(a)
+    if a.ndim < 2:
+        a = a.reshape(-1, 1)
+    n_samp, n_test = a.shape
 
     rs = np.random.RandomState(random_seed)
     flipper = (rs.uniform(size=(n_samp, n_iter)) > 0.5) * 2 - 1
-    rand_dist = a[:, None] * flipper
+    flipper = (flipper.reshape(n_samp, 1, n_iter) *
+               np.ones((n_samp, n_test, n_iter), int))
+    rand_dist = a[:, :, None] * flipper
 
     err_denom = np.sqrt(n_samp - 1)
     std_err = rand_dist.std(axis=0) / err_denom
     t_dist = rand_dist.mean(axis=0) / std_err
 
-    obs_t = a.mean() / (a.std() / err_denom)
-    cdf = sm.distributions.ECDF(t_dist)
-    obs_p = 1 - cdf(obs_t)
+    obs_t = a.mean(axis=0) / (a.std(axis=0) / err_denom)
+    if corrected:
+        cdf = sm.distributions.ECDF(t_dist.max(axis=0))
+        obs_p = 1 - cdf(obs_t)
+    else:
+        obs_p = []
+        for obs_i, null_i in zip(obs_t, t_dist):
+            cdf = sm.distributions.ECDF(null_i)
+            obs_p.append(1 - cdf(obs_i))
+        obs_p = np.array(obs_p)
+
+    obs_t = obs_t.squeeze()
+    obs_p = obs_p.squeeze()
+    t_dist = t_dist.squeeze()
 
     if return_dist:
         return obs_t, obs_p, t_dist
