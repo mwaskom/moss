@@ -484,3 +484,10 @@ def test_transition_probabilities():
     out = stat.transition_probabilities(a)
     npt.assert_equal(out.columns.tolist(), ["bar", "foo"])
     npt.assert_equal(out.columns, out.index)
+
+
+def test_gamma_hrf_fit():
+
+    # First we should be able to reconcstruct the exact params
+    # when sampling with no noise
+    rv = spstats.gamma()

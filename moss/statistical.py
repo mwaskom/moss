@@ -208,28 +208,28 @@ def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
 
     Parameters
     ----------
-    a : sequence
-        input data
-    corrected : boolean
-        correct the p values in the case of multiple tests
-    h_0 : float
-        null hypothesis for the group mean
+    a : array-like
+        input data to test
     n_iter : int
         number of randomization iterations
+    h_0 : float, broadcastable to tests in a
+        null hypothesis for the group mean
+    corrected : bool
+        correct the p values in the case of multiple tests
     random_seed : int or None
         seed to use for random number generator
     return_dist : bool
-        if True will return the distribution of means
+        if True, return the null distribution of t statistics
 
     Returns
     -------
-    obs_t : float
-        group mean T statistic
-    obs_p : float
-        one-tailed p value that the population mean is greater than 0
-        (1 - the percentile of the observed mean in the null dist)
+    obs_t : float or array of floats
+        group mean T statistic(s) corresponding to tests in input
+    obs_p : float or array of floats
+        one-tailed p value that the population mean is greater than h_0
+        (1 - percentile under the null)
     dist : ndarray, optional
-        if return_dist is True, this will return the full null distribution
+        if return_dist is True, the null distribution of t statistics
 
     """
     a = np.asarray(a)
