@@ -393,7 +393,7 @@ def test_randimoize_corrmat_tails():
     p_mat_b = stat.randomize_corrmat(d, "both", False, random_seed=0)
     p_mat_u = stat.randomize_corrmat(d, "upper", False, random_seed=0)
     p_mat_l = stat.randomize_corrmat(d, "lower", False, random_seed=0)
-    assert_equal(p_mat_b[0 ,1], p_mat_u[0, 1] * 2)
+    assert_equal(p_mat_b[0, 1], p_mat_u[0, 1] * 2)
     assert_equal(p_mat_l[0, 1], 1 - p_mat_u[0, 1])
 
 
