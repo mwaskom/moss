@@ -532,8 +532,8 @@ class GammaHRF(object):
 
             shape, loc, scale, baseline, coef = vals
             pdf = stats.gamma(shape, loc, scale).pdf(x)
-            pdf += baseline
             pdf *= coef
+            pdf += baseline
             return y - pdf
 
         optim_vals, _ = sp.optimize.leastsq(_objective,
@@ -562,8 +562,8 @@ class GammaHRF(object):
 
         """
         hrf = stats.gamma(self.shape, self.loc, self.scale).pdf(x)
-        hrf += self.baseline
         hrf *= self.coef
+        hrf += self.baseline
         return hrf
 
     def r2_score(self, x, y):
