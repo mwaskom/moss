@@ -486,8 +486,45 @@ def test_transition_probabilities():
     npt.assert_equal(out.columns, out.index)
 
 
-def test_gamma_hrf_fit():
+def test_gamma_hrf_fit_direct():
+    """Very basic test of HRF fitting."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    hrf.fit(x, y)
+    npt.assert_allclose(hrf.shape, 6, atol=1e-6)
+    npt.assert_allclose(hrf.scale, 0.9, atol=1e-6)
+    npt.assert_allclose(hrf.baseline, 0, atol=1e-6)
 
-    # First we should be able to reconcstruct the exact params
-    # when sampling with no noise
-    rv = spstats.gamma()
+
+def test_gamma_hrf_predict():
+    """Test predictions of HRF model."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    y += np.random.normal(0, .01, 24)
+    y_hat = hrf.fit(x, y).predict(x)
+    npt.assert_allclose(y, y_hat, atol=.1)
+
+
+def test_gamma_hrf_peak():
+    """Test calculation of HRF peak time."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    hrf.fit(x, y)
+    peak_wanted = 5 * .9
+    peak_observed = hrf.peak_time
+    npt.assert_allclose(peak_wanted, peak_observed, atol=.2)
+
+
+def test_gamma_r2():
+    """Test that R2 is better with less noise."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    y_low = y + np.random.normal(0, .001, 24)
+    y_high = y + np.random.normal(0, .05, 24)
+    r2_low = hrf.fit(x, y).r2_score(x, y_low)
+    r2_high = hrf.fit(x, y).r2_score(x, y_high)
+    nose.tools.assert_less(r2_high, r2_low)

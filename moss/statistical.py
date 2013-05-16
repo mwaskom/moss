@@ -5,6 +5,7 @@ import scipy as sp
 from scipy import stats
 import pandas as pd
 import statsmodels.api as sm
+from sklearn.metrics import r2_score
 from sklearn.cross_validation import (cross_val_score,
                                       LeaveOneOut, LeaveOneLabelOut)
 
@@ -489,3 +490,90 @@ def transition_probabilities(sched):
 
     trans_probs = trans_probs.divide(pd.value_counts(sched[:-1]))
     return trans_probs.T
+
+
+class GammaHRF(object):
+    """Fit and predict a single gamma pdf function from timecourse data."""
+    def __init__(self, shape=7, loc=0, scale=.9, baseline=0, coef=1):
+        """Provide starting values for the optimization.
+
+        Defaults are basically a single Glover HRF.
+
+        Parameters
+        ----------
+        shape, loc, scale : floats
+            parameters for scipy.stats.gamma
+        baseline : float
+            value of function at loc_0
+        coef : float
+            single height scaling parameter
+
+        """
+        self.starting_vals = [shape, loc, scale, baseline, coef]
+
+    def fit(self, x, y, maxfev=0):
+        """Optimize a fit to data using least squares.
+
+        Parameters
+        ----------
+        x : 1d array
+            timepoints (in seconds)
+        y : 1d array
+            observed data values
+        maxfev : int, optional
+            maximum function evals (0 sets automatic default)
+
+        Returns
+        -------
+        self : reference to self
+
+        """
+        def _objective(vals):
+
+            shape, loc, scale, baseline, coef = vals
+            pdf = stats.gamma(shape, loc, scale).pdf(x)
+            pdf += baseline
+            pdf *= coef
+            return y - pdf
+
+        optim_vals, _ = sp.optimize.leastsq(_objective,
+                                            self.starting_vals,
+                                            maxfev=maxfev)
+        shape, loc, scale, baseline, coef = optim_vals
+        self.shape = shape
+        self.loc = loc
+        self.scale = scale
+        self.baseline = baseline
+        self.coef = coef
+        return self
+
+    def predict(self, x):
+        """Using fit values, predict heights for new timepoints.
+
+        Parameters
+        ----------
+        x : array
+            timepoints (in seconds)
+
+        Returns
+        -------
+        hrf : array
+            predicted heights at each timepoint
+
+        """
+        hrf = stats.gamma(self.shape, self.loc, self.scale).pdf(x)
+        hrf += self.baseline
+        hrf *= self.coef
+        return hrf
+
+    def r2_score(self, x, y):
+        """Predict new values at x and measure fit with y."""
+        hrf = self.predict(x)
+        return r2_score(hrf, y)
+
+    @property
+    def peak_time(self):
+        """Use fit parameters to predict time to peak."""
+        if self.shape > 1:
+            return (self.shape - 1) * self.scale + self.loc
+        return self.loc
