@@ -509,7 +509,7 @@ class GammaHRF(object):
             value of function at loc_0. uses data min if None
 
         """
-        self.starting_vals = [shape, loc, scale, baseline, coef]
+        self.starting_vals = [shape, loc, scale, coef, baseline]
 
     def fit(self, x, y, maxfev=0):
         """Optimize a fit to data using least squares.
