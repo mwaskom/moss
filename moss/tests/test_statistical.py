@@ -492,9 +492,9 @@ def test_gamma_hrf_fit_direct():
     x = np.arange(24)
     y = spstats.gamma(6, 0, .9).pdf(x)
     hrf.fit(x, y)
-    npt.assert_allclose(hrf.shape, 6, atol=1e-6)
-    npt.assert_allclose(hrf.scale, 0.9, atol=1e-6)
-    npt.assert_allclose(hrf.baseline, 0, atol=1e-6)
+    npt.assert_allclose(hrf.shape_, 6, atol=1e-6)
+    npt.assert_allclose(hrf.scale_, 0.9, atol=1e-6)
+    npt.assert_allclose(hrf.baseline_, 0, atol=1e-6)
 
 
 def test_gamma_hrf_predict():
@@ -514,7 +514,7 @@ def test_gamma_hrf_peak():
     y = spstats.gamma(6, 0, .9).pdf(x)
     hrf.fit(x, y)
     peak_wanted = 5 * .9
-    peak_observed = hrf.peak_time
+    peak_observed = hrf.peak_time_
     npt.assert_allclose(peak_wanted, peak_observed, atol=.2)
 
 
