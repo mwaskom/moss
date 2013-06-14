@@ -558,7 +558,7 @@ class GammaHRF(object):
             baseline = np.min(y)
 
         if coef is None:
-            y_range = y.max() - baseline
+            y_range = np.max(y) - baseline
             starting_mode = (shape - 1) * scale + loc
             gamma_rv = stats.gamma(shape, loc, scale)
             starting_peak = gamma_rv.pdf(starting_mode)
