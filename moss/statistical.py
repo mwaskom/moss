@@ -555,7 +555,7 @@ class GammaHRF(object):
 
         shape, loc, scale, coef, baseline = self.starting_vals
         if baseline is None:
-            baseline = y.min()
+            baseline = np.min(y)
 
         if coef is None:
             y_range = y.max() - baseline
