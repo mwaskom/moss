@@ -494,10 +494,14 @@ def transition_probabilities(sched):
 
 class GammaHRF(object):
     """Fit and predict a single gamma pdf function from timecourse data."""
-    def __init__(self, shape=7, loc=0, scale=.9, coef=None, baseline=None):
-        """Provide starting values for the optimization.
+    def __init__(self, shape=7, loc=0, scale=.9,
+                 coef=None, baseline=None, bounds=None):
+        """Provide starting values for the optimization and optional bounds.
 
         Defaults are basically a single Glover HRF.
+
+        If `bounds` is not None, contstrained optimization is performed
+        using leastsqbound.
 
         Parameters
         ----------
@@ -507,9 +511,22 @@ class GammaHRF(object):
             height scaling parameter. calculated automatically if None
         baseline : None or float
             value of function at loc_0. uses data min if None
+        bounds : dict or None
+            keys are parameter names and values are (min, max)
+            bounds for each parameter
 
         """
         self.starting_vals = [shape, loc, scale, coef, baseline]
+
+        if bounds is None:
+            self.bounds = None
+        else:
+            params = ["shape", "loc", "scale", "coef", "baseline"]
+            cols = ["min", "max"]
+            bdf = pd.DataFrame(index=params, columns=cols)
+            bdf[:] = None
+            bdf.update(pd.DataFrame(bounds, index=cols).T)
+            self.bounds = map(tuple, np.array(bdf).tolist())
 
     def fit(self, x, y, maxfev=0):
         """Optimize a fit to data using least squares.
@@ -543,13 +560,21 @@ class GammaHRF(object):
         if coef is None:
             y_range = y.max() - baseline
             starting_mode = (shape - 1) * scale + loc
-            starting_peak = stats.gamma(shape, loc, scale).pdf(starting_mode)
+            gamma_rv = stats.gamma(shape, loc, scale)
+            starting_peak = gamma_rv.pdf(starting_mode)
             coef = y_range / starting_peak
 
         starting_vals = [shape, loc, scale, coef, baseline]
-        optim_vals, _ = sp.optimize.leastsq(_objective,
-                                            starting_vals,
-                                            maxfev=maxfev)
+        if self.bounds is None:
+            optim_vals, _ = sp.optimize.leastsq(_objective,
+                                                starting_vals,
+                                                maxfev=maxfev)
+        else:
+            from moss import leastsqbound
+            optim_vals, _ = leastsqbound.leastsqbound(_objective,
+                                                      starting_vals,
+                                                      bounds=self.bounds,
+                                                      maxfev=maxfev)
 
         shape, loc, scale, coef, baseline = optim_vals
         self.shape_ = shape

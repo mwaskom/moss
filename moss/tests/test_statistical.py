@@ -528,3 +528,15 @@ def test_gamma_r2():
     r2_low = hrf.fit(x, y).r2_score(x, y_low)
     r2_high = hrf.fit(x, y).r2_score(x, y_high)
     nose.tools.assert_less(r2_high, r2_low)
+
+
+def test_gamma_hrf_bounds():
+    """Test that we can supply bounds to the HRF optimzation."""
+    bounds = dict(shape=(3, 5.75), scale=(1, 1.5))
+    hrf = stat.GammaHRF(shape=5.5, scale=1.1, bounds=bounds)
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    y += np.random.normal(0, .01, 24)
+    hrf.fit(x, y)
+    nose.tools.assert_less(hrf.shape_, 5.75)
+    nose.tools.assert_less(1, hrf.scale_)
