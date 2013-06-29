@@ -37,7 +37,7 @@ def main(arglist):
             pass
         sorter = np.argsort(subjects)
         subjects = np.array(subjects)[sorter]
-        subj_logs = np.array(subjects)[sorter]
+        subj_logs = np.array(subj_logs)[sorter]
 
     # Get the current time
     now = datetime.now()
@@ -47,7 +47,7 @@ def main(arglist):
         try:
             log_file = open(log)
         except IOError:
-            print "%s: Could not open status log"
+            print "%s: Could not open status log" % log
             continue
         log_entries = log_file.readlines()
         log_file.close()
@@ -56,7 +56,7 @@ def main(arglist):
             log_entries.pop()
         status = log_entries[-1]
         timestr = " ".join(status.split()[-6:])
-        timestamp = datetime.strptime(timestr)
+        timestamp = datetime.strptime(timestr, "%a %b %d %H:%M:%S %Z %Y")
 
         if status.startswith("#@#"):
             # This string means it's still going
