@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy import stats as spstats
 from matplotlib.mlab import psd
+import pandas as pd
 from sklearn.naive_bayes import GaussianNB
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
@@ -171,6 +172,14 @@ def test_percentiles_axis():
     assert_equal(2, len(out3))
 
 
+def test_ci():
+    """Test ci against percentiles."""
+    a = np.random.randn(100)
+    p = stat.percentiles(a, [2.5, 97.5])
+    c = stat.ci(a, 95)
+    assert_array_equal(p, c)
+
+
 def test_add_constant():
     """Test the add_constant function."""
     a = np.random.randn(10, 5)
@@ -287,9 +296,43 @@ def test_randomize_onesample_seed():
     """Test that we can seed the random state and get the same distribution."""
     a = np.random.normal(0, 1, 20)
     seed = 42
-    t_a, p_a, samples_a = stat.randomize_onesample(a, 1000, seed, True)
-    t_b, t_b, samples_b = stat.randomize_onesample(a, 1000, seed, True)
+    t_a, p_a, samples_a = stat.randomize_onesample(a, 1000,
+                                                   random_seed=seed,
+                                                   return_dist=True)
+    t_b, t_b, samples_b = stat.randomize_onesample(a, 1000,
+                                                   random_seed=seed,
+                                                   return_dist=True)
     assert_array_equal(samples_a, samples_b)
+
+
+def test_randomize_onesample_multitest():
+    """Test that randomizing over multiple tests works."""
+    a = np.random.normal(0, 1, (20, 5))
+    t, p = stat.randomize_onesample(a, 1000)
+    assert_equal(len(t), 5)
+    assert_equal(len(p), 5)
+
+    t, p, dist = stat.randomize_onesample(a, 1000, return_dist=True)
+    assert_equal(dist.shape, (5, 1000))
+
+
+def test_randomize_onesample_correction():
+    """Test that maximum based correction (seems to) work."""
+    a = np.random.normal(0, 1, (100, 10))
+    t_un, p_un = stat.randomize_onesample(a, 1000, corrected=False)
+    t_corr, p_corr = stat.randomize_onesample(a, 1000, corrected=True)
+    assert_array_equal(t_un, t_corr)
+    npt.assert_array_less(p_un, p_corr)
+
+
+def test_randomize_onesample_h0():
+    """Test that we can supply a null hypothesis for the group mean."""
+    a = np.random.normal(4, 1, 100)
+    t, p = stat.randomize_onesample(a, 1000, h_0=0)
+    assert p < 0.01
+
+    t, p = stat.randomize_onesample(a, 1000, h_0=4)
+    assert p > 0.01
 
 
 def test_randomize_corrmat():
@@ -350,7 +393,7 @@ def test_randimoize_corrmat_tails():
     p_mat_b = stat.randomize_corrmat(d, "both", False, random_seed=0)
     p_mat_u = stat.randomize_corrmat(d, "upper", False, random_seed=0)
     p_mat_l = stat.randomize_corrmat(d, "lower", False, random_seed=0)
-    assert_equal(p_mat_b[0 ,1], p_mat_u[0, 1] * 2)
+    assert_equal(p_mat_b[0, 1], p_mat_u[0, 1] * 2)
     assert_equal(p_mat_l[0, 1], 1 - p_mat_u[0, 1])
 
 
@@ -421,3 +464,79 @@ def test_randomize_classifier_number():
         p_vals, perm_dist = stat.randomize_classifier(data, model, n_iter,
                                                       return_dist=True)
         nose.tools.assert_equal(len(perm_dist), n_iter)
+
+
+def test_transition_probabilities():
+
+    # Test basic
+    sched = [0, 1, 0, 1]
+    expected = pd.DataFrame([[0, 1], [1, 0]])
+    actual = stat.transition_probabilities(sched)
+    npt.assert_array_equal(expected, actual)
+
+    sched = [0, 0, 1, 1]
+    expected = pd.DataFrame([[.5, .5], [0, 1]])
+    actual = stat.transition_probabilities(sched)
+    npt.assert_array_equal(expected, actual)
+
+    a = np.random.rand(100) < .5
+    a = np.where(a, "foo", "bar")
+    out = stat.transition_probabilities(a)
+    npt.assert_equal(out.columns.tolist(), ["bar", "foo"])
+    npt.assert_equal(out.columns, out.index)
+
+
+def test_gamma_hrf_fit_direct():
+    """Very basic test of HRF fitting."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    hrf.fit(x, y)
+    npt.assert_allclose(hrf.shape_, 6, atol=1e-6)
+    npt.assert_allclose(hrf.scale_, 0.9, atol=1e-6)
+    npt.assert_allclose(hrf.baseline_, 0, atol=1e-6)
+
+
+def test_gamma_hrf_predict():
+    """Test predictions of HRF model."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    y += np.random.normal(0, .01, 24)
+    y_hat = hrf.fit(x, y).predict(x)
+    npt.assert_allclose(y, y_hat, atol=.1)
+
+
+def test_gamma_hrf_peak():
+    """Test calculation of HRF peak time."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    hrf.fit(x, y)
+    peak_wanted = 5 * .9
+    peak_observed = hrf.peak_time_
+    npt.assert_allclose(peak_wanted, peak_observed, atol=.2)
+
+
+def test_gamma_r2():
+    """Test that R2 is better with less noise."""
+    hrf = stat.GammaHRF()
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    y_low = y + np.random.normal(0, .001, 24)
+    y_high = y + np.random.normal(0, .05, 24)
+    r2_low = hrf.fit(x, y).r2_score(x, y_low)
+    r2_high = hrf.fit(x, y).r2_score(x, y_high)
+    nose.tools.assert_less(r2_high, r2_low)
+
+
+def test_gamma_hrf_bounds():
+    """Test that we can supply bounds to the HRF optimzation."""
+    bounds = dict(shape=(3, 5.75), scale=(1, 1.5))
+    hrf = stat.GammaHRF(shape=5.5, scale=1.1, bounds=bounds)
+    x = np.arange(24)
+    y = spstats.gamma(6, 0, .9).pdf(x)
+    y += np.random.normal(0, .01, 24)
+    hrf.fit(x, y)
+    nose.tools.assert_less(hrf.shape_, 5.75)
+    nose.tools.assert_less(1, hrf.scale_)

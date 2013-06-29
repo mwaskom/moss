@@ -1,5 +1,6 @@
 """Miscellaneous utility functions."""
 import numpy as np
+import pandas as pd
 from scipy import stats
 from IPython.core.display import Javascript, display
 
@@ -28,7 +29,7 @@ def df_ttest(df, by, key, paired=False, nice=True, **kwargs):
     if nice:
         return "t(%d) = %.3f; p = %.3g%s" % (dof, t, p, sig_stars(p))
     else:
-        return t, p
+        return pd.Series([t, p], ["t", "p"])
 
 
 def df_oneway(df, by, key, nice=True, **kwargs):
@@ -41,7 +42,7 @@ def df_oneway(df, by, key, nice=True, **kwargs):
         return "F(%d, %d) = %.3f; p = %.3g%s" % (dof_b, dof_w, f,
                                                  p, sig_stars(p))
     else:
-        return f, p
+        return pd.Series([f, p], ["F", "p"])
 
 
 def make_master_schedule(evs):

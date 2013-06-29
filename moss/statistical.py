@@ -3,7 +3,9 @@ from __future__ import division
 import numpy as np
 import scipy as sp
 from scipy import stats
+import pandas as pd
 import statsmodels.api as sm
+from sklearn.metrics import r2_score
 from sklearn.cross_validation import (cross_val_score,
                                       LeaveOneOut, LeaveOneLabelOut)
 
@@ -98,6 +100,12 @@ def percentiles(a, pcts, axis=None):
     return scores
 
 
+def ci(a, which=95, axis=None):
+    """Return a percentile range from an array of values."""
+    p = 50 - which / 2, 50 + which / 2
+    return percentiles(a, p, axis)
+
+
 def add_constant(a):
     """Add a constant term to a design matrix.
 
@@ -188,48 +196,74 @@ def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
     return data.squeeze()
 
 
-def randomize_onesample(a, n_iter=10000, random_seed=None, return_dist=False):
+def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
+                        random_seed=None, return_dist=False):
     """Nonparametric one-sample T test through randomization.
 
     On each iteration, randomly flip the signs of the values in ``a``
     and test the mean against 0.
 
+    If ``a`` is two-dimensional, it is assumed to be shaped as
+    (n_observations, n_tests), and a max-statistic based approach
+    is used to correct the p values for multiple comparisons over tests.
+
     Parameters
     ----------
-    a : sequence
-        input data
+    a : array-like
+        input data to test
     n_iter : int
         number of randomization iterations
+    h_0 : float, broadcastable to tests in a
+        null hypothesis for the group mean
+    corrected : bool
+        correct the p values in the case of multiple tests
     random_seed : int or None
         seed to use for random number generator
     return_dist : bool
-        if True will return the distribution of means
+        if True, return the null distribution of t statistics
 
     Returns
     -------
-    obs_t : float
-        group mean T statistic
-    obs_p : float
-        one-tailed p value that the population mean is greater than 0
-        (1 - the percentile of the observed mean in the null dist)
+    obs_t : float or array of floats
+        group mean T statistic(s) corresponding to tests in input
+    obs_p : float or array of floats
+        one-tailed p value that the population mean is greater than h_0
+        (1 - percentile under the null)
     dist : ndarray, optional
-        if return_dist is True, this will return the full null distribution
+        if return_dist is True, the null distribution of t statistics
 
     """
     a = np.asarray(a)
-    n_samp = len(a)
+    if a.ndim < 2:
+        a = a.reshape(-1, 1)
+    n_samp, n_test = a.shape
+
+    a -= h_0
 
     rs = np.random.RandomState(random_seed)
     flipper = (rs.uniform(size=(n_samp, n_iter)) > 0.5) * 2 - 1
-    rand_dist = a[:, None] * flipper
+    flipper = (flipper.reshape(n_samp, 1, n_iter) *
+               np.ones((n_samp, n_test, n_iter), int))
+    rand_dist = a[:, :, None] * flipper
 
     err_denom = np.sqrt(n_samp - 1)
     std_err = rand_dist.std(axis=0) / err_denom
     t_dist = rand_dist.mean(axis=0) / std_err
 
-    obs_t = a.mean() / (a.std() / err_denom)
-    cdf = sm.distributions.ECDF(t_dist)
-    obs_p = 1 - cdf(obs_t)
+    obs_t = a.mean(axis=0) / (a.std(axis=0) / err_denom)
+    if corrected:
+        cdf = sm.distributions.ECDF(t_dist.max(axis=0))
+        obs_p = 1 - cdf(obs_t)
+    else:
+        obs_p = []
+        for obs_i, null_i in zip(obs_t, t_dist):
+            cdf = sm.distributions.ECDF(null_i)
+            obs_p.append(1 - cdf(obs_i))
+        obs_p = np.array(obs_p)
+
+    obs_t = obs_t.squeeze()
+    obs_p = obs_p.squeeze()
+    t_dist = t_dist.squeeze()
 
     if return_dist:
         return obs_t, obs_p, t_dist
@@ -427,3 +461,157 @@ def randomize_classifier(data, model, n_iter=1000, cv_method="run",
     if return_dist:
         return p_vals, null_dist
     return p_vals
+
+
+def transition_probabilities(sched):
+    """Return probability of moving from row trial to col trial.
+
+    Parameters
+    ----------
+    sched : array or pandas Series
+        event schedule
+
+    Returns
+    -------
+    trans_probs : pandas DataFrame
+
+    """
+    sched = np.asarray(sched)
+    trial_types = np.sort(np.unique(sched))
+    n_types = len(trial_types)
+    trans_probs = pd.DataFrame(columns=trial_types, index=trial_types)
+
+    for type in trial_types:
+        type_probs = pd.Series(np.zeros(n_types), index=trial_types)
+        idx, = np.nonzero(sched[:-1] == type)
+        idx += 1
+        type_probs.update(pd.value_counts(sched[idx]))
+        trans_probs[type] = type_probs
+
+    trans_probs = trans_probs.divide(pd.value_counts(sched[:-1]))
+    return trans_probs.T
+
+
+class GammaHRF(object):
+    """Fit and predict a single gamma pdf function from timecourse data."""
+    def __init__(self, shape=7, loc=0, scale=.9,
+                 coef=None, baseline=None, bounds=None):
+        """Provide starting values for the optimization and optional bounds.
+
+        Defaults are basically a single Glover HRF.
+
+        If `bounds` is not None, contstrained optimization is performed
+        using leastsqbound.
+
+        Parameters
+        ----------
+        shape, loc, scale : floats
+            parameters for scipy.stats.gamma
+        coef : float
+            height scaling parameter. calculated automatically if None
+        baseline : None or float
+            value of function at loc_0. uses data min if None
+        bounds : dict or None
+            keys are parameter names and values are (min, max)
+            bounds for each parameter
+
+        """
+        self.starting_vals = [shape, loc, scale, coef, baseline]
+
+        if bounds is None:
+            self.bounds = None
+        else:
+            params = ["shape", "loc", "scale", "coef", "baseline"]
+            cols = ["min", "max"]
+            bdf = pd.DataFrame(index=params, columns=cols)
+            bdf[:] = None
+            bdf.update(pd.DataFrame(bounds, index=cols).T)
+            self.bounds = map(tuple, np.array(bdf).tolist())
+
+    def fit(self, x, y, maxfev=0):
+        """Optimize a fit to data using least squares.
+
+        Parameters
+        ----------
+        x : 1d array
+            timepoints (in seconds)
+        y : 1d array
+            observed data values
+        maxfev : int, optional
+            maximum function evals (0 sets automatic default)
+
+        Returns
+        -------
+        self : reference to self
+
+        """
+        def _objective(vals):
+
+            shape, loc, scale, coef, baseline = vals
+            pdf = stats.gamma(shape, loc, scale).pdf(x)
+            pdf *= coef
+            pdf += baseline
+            return y - pdf
+
+        shape, loc, scale, coef, baseline = self.starting_vals
+        if baseline is None:
+            baseline = np.min(y)
+
+        if coef is None:
+            y_range = np.max(y) - baseline
+            starting_mode = (shape - 1) * scale + loc
+            gamma_rv = stats.gamma(shape, loc, scale)
+            starting_peak = gamma_rv.pdf(starting_mode)
+            coef = y_range / starting_peak
+
+        starting_vals = [shape, loc, scale, coef, baseline]
+        if self.bounds is None:
+            optim_vals, _ = sp.optimize.leastsq(_objective,
+                                                starting_vals,
+                                                maxfev=maxfev)
+        else:
+            from moss import leastsqbound
+            optim_vals, _ = leastsqbound.leastsqbound(_objective,
+                                                      starting_vals,
+                                                      bounds=self.bounds,
+                                                      maxfev=maxfev)
+
+        shape, loc, scale, coef, baseline = optim_vals
+        self.shape_ = shape
+        self.loc_ = loc
+        self.scale_ = scale
+        self.coef_ = coef
+        self.baseline_ = baseline
+        self.fit_r2_ = self.r2_score(x, y)
+        return self
+
+    def predict(self, x):
+        """Using fit values, predict heights for new timepoints.
+
+        Parameters
+        ----------
+        x : array
+            timepoints (in seconds)
+
+        Returns
+        -------
+        hrf : array
+            predicted heights at each timepoint
+
+        """
+        hrf = stats.gamma(self.shape_, self.loc_, self.scale_).pdf(x)
+        hrf *= self.coef_
+        hrf += self.baseline_
+        return hrf
+
+    def r2_score(self, x, y):
+        """Predict new values at x and measure fit with y."""
+        hrf = self.predict(x)
+        return r2_score(hrf, y)
+
+    @property
+    def peak_time_(self):
+        """Use fit parameters to predict time to peak."""
+        if self.shape_ > 1:
+            return (self.shape_ - 1) * self.scale_ + self.loc_
+        return self.loc_
