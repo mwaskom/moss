@@ -102,8 +102,8 @@ def percentiles(a, pcts, axis=None):
 
 def vector_reject(x, y):
     """Remove y from x using vector rejection."""
-    x = x.reshape((-1, 1))
-    y = y.reshape((-1, 1))
+    x = np.asarray(x).astype(float).reshape((-1, 1))
+    y = np.asarray(y).astype(float).reshape((-1, 1))
     x_ = x - np.dot(x.T, y).T * (y / np.dot(y.T, y))
     return x_.ravel()
 
