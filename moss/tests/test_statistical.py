@@ -8,7 +8,7 @@ from sklearn.naive_bayes import GaussianNB
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 import numpy.testing as npt
 import nose.tools
-from nose.tools import assert_equal, raises
+from nose.tools import assert_equal, assert_almost_equal, raises
 
 from .. import statistical as stat
 
@@ -178,6 +178,14 @@ def test_ci():
     p = stat.percentiles(a, [2.5, 97.5])
     c = stat.ci(a, 95)
     assert_array_equal(p, c)
+
+
+def test_vector_reject():
+    """Test vector rejection function."""
+    x = np.random.randn(30)
+    y = x + np.random.randn(30) / 2
+    x_ = stat.vector_reject(x, y)
+    assert_almost_equal(np.dot(x_, y), 0)
 
 
 def test_add_constant():

@@ -100,6 +100,14 @@ def percentiles(a, pcts, axis=None):
     return scores
 
 
+def vector_reject(x, y):
+    """Remove y from x using vector rejection."""
+    x = x.reshape((-1, 1))
+    y = y.reshape((-1, 1))
+    x_ = x - np.dot(x.T, y).T * (y / np.dot(y.T, y))
+    return x_.ravel()
+
+
 def ci(a, which=95, axis=None):
     """Return a percentile range from an array of values."""
     p = 50 - which / 2, 50 + which / 2
