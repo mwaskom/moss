@@ -7,6 +7,13 @@ import numpy.testing as npt
 from .. import glm
 
 
+def test_hrf_sum():
+    """Returned HRF values should sum to 1."""
+    hrf = glm.GammaDifferenceHRF()
+    out = hrf(np.linspace(0, 32, 32 * 16))
+    npt.assert_almost_equal(out.sum(), 1)
+
+
 def test_highpass_matrix_shape():
     """Test the filter matrix is the right shape."""
     for n_tp in 10, 100:

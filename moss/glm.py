@@ -7,17 +7,36 @@ from scipy.stats import gamma
 
 class HRFModel(object):
 
-    pass
+    def __init__(self):
+
+        raise NotImplementedError
+
+    def __call__(self, timepoints):
+
+        raise NotImplementedError
 
 
 class GammaDifferenceHRF(HRFModel):
 
-    pass
+    def __init__(self, pos_shape=4, pos_scale=2,
+                 neg_shape=7, neg_scale=2, ratio=.3):
+        self.rv_pos = gamma(pos_shape, scale=pos_scale)
+        self.rv_neg = gamma(neg_shape, scale=neg_scale)
+        self.ratio = ratio
+
+    def __call__(self, timepoints):
+
+        hrf = self.rv_pos.pdf(timepoints)
+        hrf -= self.ratio * self.rv_neg.pdf(timepoints)
+        hrf /= hrf.sum()
+        return hrf
 
 
 class FIR(HRFModel):
 
-    pass
+    def __init__(self):
+
+        return NotImplementedError
 
 
 class DesignMatrix(object):
