@@ -11,10 +11,6 @@ class HRFModel(object):
     def __init__(self):
         raise NotImplementedError
 
-    def __call__(self, timepoints):
-        """Evaluate the HRF at timepoints."""
-        raise NotImplementedError
-
     @property
     def kernel(self):
         """Evaluate the kernal at timepoints."""
