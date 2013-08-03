@@ -9,9 +9,55 @@ from .. import glm
 
 def test_hrf_sum():
     """Returned HRF values should sum to 1."""
-    hrf = glm.GammaDifferenceHRF()
-    out = hrf(np.linspace(0, 32, 32 * 16))
-    npt.assert_almost_equal(out.sum(), 1)
+    tps = np.linspace(0, 32, 32 * 16 + 1)
+    hrf1 = glm.GammaDifferenceHRF()
+    out1 = hrf1(tps)
+    npt.assert_almost_equal(out1.sum(), 1)
+
+    hrf2 = glm.GammaDifferenceHRF(ratio=0)
+    out2 = hrf2(tps)
+    npt.assert_almost_equal(out2.sum(), 1)
+
+
+def test_hrf_peaks():
+    """Test HRF based on gamma distribution properties."""
+    tps = np.linspace(0, 32, 32 * 100 + 1)
+
+    hrf1 = glm.GammaDifferenceHRF(pos_shape=6, pos_scale=1, ratio=0)
+    hrf1_peak = tps[np.argmax(hrf1(tps))]
+    npt.assert_almost_equal(hrf1_peak, 5)
+
+    hrf2 = glm.GammaDifferenceHRF(pos_shape=4, pos_scale=2, ratio=0)
+    hrf2_peak = tps[np.argmax(hrf2(tps))]
+    npt.assert_almost_equal(hrf2_peak, (4 - 1) * 2)
+
+    hrf3 = glm.GammaDifferenceHRF(neg_shape=7, neg_scale=2, ratio=1000)
+    hrf3_trough = tps[np.argmax(hrf3(tps))]
+    npt.assert_almost_equal(hrf3_trough, (7 - 1) * 2)
+
+
+def test_hrf_shape():
+    """Test the shape of the hrf output with different params."""
+    ntp = 32 * 16 + 1
+    tps = np.linspace(0, 32, ntp)
+
+    hrf1 = glm.GammaDifferenceHRF()
+    y1 = hrf1(tps)
+    npt.assert_equal(y1.shape, (ntp, 1))
+
+    hrf2 = glm.GammaDifferenceHRF(temporal_deriv=True)
+    y2 = hrf2(tps)
+    npt.assert_equal(y2.shape, (ntp, 2))
+
+
+def test_hrf_deriv_scaling():
+    """Test relative scaling of main HRF and derivative."""
+    tps = np.linspace(0, 32, 32 * 16 + 1)
+    hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
+    y, dy = hrf(tps).T
+    ss_y = np.square(y).sum()
+    ss_dy = np.square(dy).sum()
+    npt.assert_almost_equal(ss_y, ss_dy)
 
 
 def test_highpass_matrix_shape():
