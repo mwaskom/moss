@@ -116,7 +116,7 @@ class FIR(HRFModel):
 class DesignMatrix(object):
     """fMRI-specific design matrix object."""
     def __init__(self, design, condition_names, hrf_model, ntp, tr=2,
-                 oversampling=16):
+                 hpf_cutoff=128, oversampling=16):
         """Initialize the design matrix object."""
         if "duration" not in design:
             design["duration"] = 0
@@ -132,6 +132,13 @@ class DesignMatrix(object):
         # Convolve the oversampled condition regressors
         self._make_hires_base(oversampling)
         self._convolve(hrf_model)
+
+        # Subsample the condition regressors and highpass filter
+        condition_X = self._subsample_condition_matrix()
+        condition_X -= condition_X.mean()
+        if hpf_cutoff is not None:
+            condition_X = self._highpass_filter(condition_X, hpf_cutoff)
+
 
     def _make_hires_base(self, oversampling):
         """Make the oversampled condition base submatrix."""
@@ -183,6 +190,25 @@ class DesignMatrix(object):
                                      self._hires_frametimes)
             for key, vals in res.iteritems():
                 self._hires_X[key] = vals
+
+    def _subsample_condition_matrix(self):
+        """Sample the hires convolved matrix at the TR midpoint."""
+        condition_X = pd.DataFrame(columns=self._hires_X.columns,
+                                   index=self.frametimes)
+
+        frametime_midpoints = self.frametimes + self.tr / 2
+        for key, vals in self._hires_X.iteritems():
+            resampler = sp.interpolate.interp1d(self._hires_frametimes, vals)
+            condition_X[key] = resampler(frametime_midpoints)
+
+        return condition_X
+
+    def _highpass_filter(self, mat, cutoff):
+        """Highpass-filter each column in mat."""
+        F = fsl_highpass_matrix(self.ntp, cutoff, self.tr)
+        for key, vals in mat.iteritems():
+            mat[key] = np.dot(F, vals)
+        return mat
 
 
 def fsl_highpass_matrix(n_tp, cutoff, tr=2):
