@@ -9,18 +9,18 @@ from scipy.stats import gamma
 class HRFModel(object):
     """Abstract class definition for HRF Models."""
     def __init__(self):
-
         raise NotImplementedError
 
     def __call__(self, timepoints):
         """Evaluate the HRF at timepoints."""
         raise NotImplementedError
 
-    def _temporal_deriv(self, timepoints):
-        """Evaluate the temporal derivative of the model at timepoints."""
+    @property
+    def kernel(self):
+        """Evaluate the kernal at timepoints."""
         raise NotImplementedError
 
-    def _convolve(self, data):
+    def convolve(self, data):
         """Convolve the kernel with some data."""
         raise NotImplementedError
 

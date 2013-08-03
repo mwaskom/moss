@@ -1,6 +1,8 @@
 import numpy as np
+import pandas as pd
 from scipy import signal
 
+import nose.tools as nt
 from nose.tools import assert_equal, assert_greater
 import numpy.testing as npt
 
@@ -9,55 +11,106 @@ from .. import glm
 
 def test_hrf_sum():
     """Returned HRF values should sum to 1."""
-    tps = np.linspace(0, 32, 32 * 16 + 1)
     hrf1 = glm.GammaDifferenceHRF()
-    out1 = hrf1(tps)
-    npt.assert_almost_equal(out1.sum(), 1)
+    npt.assert_almost_equal(hrf1.kernel.sum(), 1)
 
     hrf2 = glm.GammaDifferenceHRF(ratio=0)
-    out2 = hrf2(tps)
-    npt.assert_almost_equal(out2.sum(), 1)
+    npt.assert_almost_equal(hrf2.kernel.sum(), 1)
 
 
 def test_hrf_peaks():
     """Test HRF based on gamma distribution properties."""
-    tps = np.linspace(0, 32, 32 * 100 + 1)
+    hrf1 = glm.GammaDifferenceHRF(oversampling=500,
+                                  pos_shape=6, pos_scale=1, ratio=0)
+    hrf1_peak = hrf1._timepoints[np.argmax(hrf1.kernel)]
+    npt.assert_almost_equal(hrf1_peak, 5, 2)
 
-    hrf1 = glm.GammaDifferenceHRF(pos_shape=6, pos_scale=1, ratio=0)
-    hrf1_peak = tps[np.argmax(hrf1(tps))]
-    npt.assert_almost_equal(hrf1_peak, 5)
+    hrf2 = glm.GammaDifferenceHRF(oversampling=500,
+                                  pos_shape=4, pos_scale=2, ratio=0)
+    hrf2_peak = hrf2._timepoints[np.argmax(hrf2.kernel)]
+    npt.assert_almost_equal(hrf2_peak, (4 - 1) * 2, 2)
 
-    hrf2 = glm.GammaDifferenceHRF(pos_shape=4, pos_scale=2, ratio=0)
-    hrf2_peak = tps[np.argmax(hrf2(tps))]
-    npt.assert_almost_equal(hrf2_peak, (4 - 1) * 2)
-
-    hrf3 = glm.GammaDifferenceHRF(neg_shape=7, neg_scale=2, ratio=1000)
-    hrf3_trough = tps[np.argmax(hrf3(tps))]
-    npt.assert_almost_equal(hrf3_trough, (7 - 1) * 2)
+    hrf3 = glm.GammaDifferenceHRF(oversampling=500,
+                                  neg_shape=7, neg_scale=2, ratio=1000)
+    hrf3_trough = hrf3._timepoints[np.argmax(hrf3.kernel)]
+    npt.assert_almost_equal(hrf3_trough, (7 - 1) * 2, 2)
 
 
 def test_hrf_shape():
     """Test the shape of the hrf output with different params."""
-    ntp = 32 * 16 + 1
-    tps = np.linspace(0, 32, ntp)
-
     hrf1 = glm.GammaDifferenceHRF()
-    y1 = hrf1(tps)
-    npt.assert_equal(y1.shape, (ntp, 1))
+    npt.assert_equal(hrf1.kernel.shape[1], 1)
 
     hrf2 = glm.GammaDifferenceHRF(temporal_deriv=True)
-    y2 = hrf2(tps)
-    npt.assert_equal(y2.shape, (ntp, 2))
+    npt.assert_equal(hrf2.kernel.shape[1], 2)
 
 
 def test_hrf_deriv_scaling():
     """Test relative scaling of main HRF and derivative."""
-    tps = np.linspace(0, 32, 32 * 16 + 1)
     hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
-    y, dy = hrf(tps).T
+    y, dy = hrf.kernel.T
     ss_y = np.square(y).sum()
     ss_dy = np.square(dy).sum()
     npt.assert_almost_equal(ss_y, ss_dy)
+
+
+def test_hrf_deriv_timing():
+    """Gamma derivative should peak earlier than the main HRF."""
+    hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
+    y, dy = hrf.kernel.T
+    nt.assert_greater(np.argmax(y), np.argmax(dy))
+
+
+def test_hrf_convolution():
+    """Test some basics about the convolution."""
+    hrf = glm.GammaDifferenceHRF()
+    data1 = np.zeros(500)
+    data1[0] = 1
+    conv1 = hrf.convolve(data1)
+    npt.assert_almost_equal(conv1.sum(), 1)
+
+    data2 = np.ones(500)
+    conv2 = hrf.convolve(data2)
+    npt.assert_almost_equal(conv2.ix[-200:].mean(), 1)
+
+
+def test_hrf_frametimes():
+    """Test the frametimes that come out of the convolution."""
+    data = (np.random.rand(500) < .2).astype(int)
+    ft = np.arange(500)
+
+    hrf1 = glm.GammaDifferenceHRF()
+    conv1 = hrf1.convolve(data, ft)
+    npt.assert_array_equal(ft, conv1.index.values)
+
+    hrf2 = glm.GammaDifferenceHRF(tr=1, oversampling=1)
+    conv2 = hrf2.convolve(data)
+    npt.assert_array_equal(ft, conv2.index.values)
+
+    hrf3 = glm.GammaDifferenceHRF(tr=2, oversampling=2)
+    conv3 = hrf3.convolve(data)
+    npt.assert_array_equal(ft, conv3.index.values)
+
+
+def test_hrf_names():
+    """Test the names that come out of the convolution."""
+    data = (np.random.rand(500) < .2).astype(int)
+    series_data = pd.Series(data, name="donna")
+
+    hrf1 = glm.GammaDifferenceHRF()
+
+    conv1 = hrf1.convolve(data)
+    nt.assert_equal(conv1.columns.tolist(), ["event"])
+
+    conv2 = hrf1.convolve(data, name="donna")
+    nt.assert_equal(conv2.columns.tolist(), ["donna"])
+
+    conv3 = hrf1.convolve(series_data)
+    nt.assert_equal(conv3.columns.tolist(), ["donna"])
+
+    hrf2 = glm.GammaDifferenceHRF(temporal_deriv=True)
+    conv4 = hrf2.convolve(series_data)
+    nt.assert_equal(conv4.columns.tolist(), ["donna", "donna_deriv"])
 
 
 def test_highpass_matrix_shape():
