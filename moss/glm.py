@@ -49,7 +49,7 @@ class GammaDifferenceHRF(HRFModel):
 
         if self._temporal_deriv:
             dy = np.diff(y)
-            dy = np.concatenate([dy, [0]])
+            dy = np.concatenate([[0], dy])
             scale = np.sqrt(np.square(y).sum() / np.square(dy).sum())
             dy *= scale
             y = np.c_[y, dy]
@@ -119,13 +119,13 @@ class FIR(HRFModel):
 
 class DesignMatrix(object):
     """fMRI-specific design matrix object."""
-    def __init__(self, design, condition_names, hrf_model, tr, ntp,
+    def __init__(self, design, condition_names, hrf_model, ntp, tr=2,
                  oversampling=16):
         """Initialize the design matrix object."""
         if "duration" not in design:
             design["duration"] = 0
         if "value" not in design:
-            design["value"] = 0
+            design["value"] = 1
 
         self.design = design
         self.condition_names = condition_names
@@ -133,7 +133,7 @@ class DesignMatrix(object):
         self.ntp = ntp
         self.frametimes = np.arange(0, (ntp * tr) - 1, tr, np.float)
 
-        # Make an oversampled version of the condition base submatrix
+        # Convolve the oversampled condition regressors
         self._make_hires_base(oversampling)
         self._convolve(hrf_model)
 
@@ -181,7 +181,12 @@ class DesignMatrix(object):
 
     def _convolve(self, hrf_model):
         """Convolve the condition regressors with the HRF model."""
-        pass
+        self._hires_X = self._hires_base.copy()
+        for cond in self.condition_names:
+            res = hrf_model.convolve(self._hires_base[cond],
+                                     self._hires_frametimes)
+            for key, vals in res.iteritems():
+                self._hires_X[key] = vals
 
 
 def fsl_highpass_matrix(n_tp, cutoff, tr=2):
