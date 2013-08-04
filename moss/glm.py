@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 from scipy.stats import gamma
+import matplotlib.pyplot as plt
 
 
 class HRFModel(object):
@@ -74,6 +75,8 @@ class GammaDifferenceHRF(HRFModel):
 
         """
         ntp = len(data)
+
+        # Without frametimes, assume data and kernel have same sampling
         if frametimes is None:
             orig_ntp = (ntp - 1) / self._oversampling
             orig_max = (orig_ntp - 1) * self._tr
@@ -115,8 +118,8 @@ class FIR(HRFModel):
 
 class DesignMatrix(object):
     """fMRI-specific design matrix object."""
-    def __init__(self, design, condition_names, hrf_model, ntp, tr=2,
-                 hpf_cutoff=128, oversampling=16):
+    def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
+                 artifacts=None, tr=2, hpf_cutoff=128, oversampling=16):
         """Initialize the design matrix object."""
         if "duration" not in design:
             design["duration"] = 0
@@ -124,33 +127,82 @@ class DesignMatrix(object):
             design["value"] = 1
 
         self.design = design
-        self.condition_names = condition_names
         self.tr = tr
-        self.ntp = ntp
-        self.frametimes = np.arange(0, (ntp * tr) - 1, tr, np.float)
+        frametimes = np.arange(0, ntp * tr, tr, np.float)
+        self.frametimes = pd.Series(frametimes, name="frametimes")
+        condition_names = np.sort(design.condition.unique())
+        self._condition_names = pd.Series(condition_names, name="conditions")
+        self._ntp = ntp
 
         # Convolve the oversampled condition regressors
         self._make_hires_base(oversampling)
         self._convolve(hrf_model)
 
         # Subsample the condition regressors and highpass filter
-        condition_X = self._subsample_condition_matrix()
-        condition_X -= condition_X.mean()
+        conditions = self._subsample_condition_matrix()
+        conditions -= conditions.mean()
         if hpf_cutoff is not None:
-            condition_X = self._highpass_filter(condition_X, hpf_cutoff)
+            filtered_conditions = self._highpass_filter(conditions, hpf_cutoff)
+        else:
+            filtered_conditions = conditions
 
+        # Set up the other regressors of interest
+        regressors = self._validate_component(regressors, "regressor")
+
+        # Set up the confound submatrix
+        confounds = self._validate_component(confounds, "confound")
+
+        # Set up the artifacts submatrix
+        if artifacts is not None:
+            if artifacts.any():
+                n_art = artifacts.sum()
+                art = np.zeros((artifacts.size, n_art))
+                art[np.where(artifacts), np.arange(n_art)] = 1
+                artifacts = self._validate_component(art, "artifact")
+            else:
+                artifacts = None
+
+        # Now build the full design matrix
+        pieces = [filtered_conditions]
+        if regressors is not None:
+            pieces.append(regressors)
+        if confounds is not None:
+            pieces.append(confounds)
+        if artifacts is not None:
+            pieces.append(artifacts)
+
+        X = pd.concat(pieces, axis=1)
+        X.index = self.frametimes
+        X.columns.name = "evs"
+        X -= X.mean(axis=0)
+        self.design_matrix = X
+
+        # Now build the column name lists that will let us index
+        # into the submatrices
+        conf_names, art_names = [], []
+        main_names = self._condition_names.tolist()
+        if regressors is not None:
+            main_names += regressors.columns.tolist()
+        if confounds is not None:
+            conf_names = confounds.columns.tolist()
+        if artifacts is not None:
+            art_names = artifacts.columns.tolist()
+        self._full_names = X.columns.tolist()
+        self._main_names = main_names
+        self._confound_names = conf_names
+        self._artifact_names = art_names
 
     def _make_hires_base(self, oversampling):
         """Make the oversampled condition base submatrix."""
-        hires_max = self.frametimes.max() * (1 + 1 / (self.ntp - 1))
-        hires_ntp = self.ntp * oversampling + 1
+        hires_max = self.frametimes.max() * (1 + 1 / (self._ntp - 1))
+        hires_ntp = self._ntp * oversampling + 1
         self._hires_ntp = hires_ntp
         self._hires_frametimes = np.linspace(0, hires_max, hires_ntp)
 
-        hires_base = pd.DataFrame(columns=self.condition_names,
+        hires_base = pd.DataFrame(columns=self._condition_names,
                                   index=self._hires_frametimes)
 
-        for cond in self.condition_names:
+        for cond in self._condition_names:
             cond_info = self.design[self.design.condition == cond]
             cond_info = cond_info[["onset", "duration", "value"]]
             regressor = self._make_hires_regressor_base(cond_info)
@@ -185,7 +237,7 @@ class DesignMatrix(object):
     def _convolve(self, hrf_model):
         """Convolve the condition regressors with the HRF model."""
         self._hires_X = self._hires_base.copy()
-        for cond in self.condition_names:
+        for cond in self._condition_names:
             res = hrf_model.convolve(self._hires_base[cond],
                                      self._hires_frametimes)
             for key, vals in res.iteritems():
@@ -203,12 +255,89 @@ class DesignMatrix(object):
 
         return condition_X
 
+    def _validate_component(self, comp, name_base):
+        """For components that can be an an array or df, build the df."""
+        if comp is None:
+            return None
+        try:
+            names = comp.columns
+        except AttributeError:
+            n = comp.shape[1]
+            names = pd.Series([name_base + "_%d"] * n) % range(n)
+            comp = pd.DataFrame(comp, self.frametimes, names)
+
+        if not np.all(comp.index == self.frametimes):
+            err = "Frametimes for %ss do not match design." % name_base
+            raise ValueError(err)
+
+        return comp
+
     def _highpass_filter(self, mat, cutoff):
         """Highpass-filter each column in mat."""
-        F = fsl_highpass_matrix(self.ntp, cutoff, self.tr)
+        F = fsl_highpass_matrix(self._ntp, cutoff, self.tr)
         for key, vals in mat.iteritems():
             mat[key] = np.dot(F, vals)
         return mat
+
+    def contrast_vector(self, cols, contrast):
+        """Return a full contrast vector given conditions and weightings."""
+        vector = np.zeros(self.design_matrix.shape[1])
+        for name, val in zip(cols, contrast):
+            vector[self.design_matrix.columns == name] = val
+        return vector
+
+    def plot(self, kind="main", fname=None, cmap="bone"):
+        """Draw an image representation of the design matrxi."""
+        names = getattr(self, "_%s_names" % kind)
+        mat = self.design_matrix[names]
+        mat = mat / mat.abs().max()
+
+        x, y = .66 * mat.shape[1], .02 * mat.shape[0]
+        figsize = min(x, 10), min(y, 14)
+        f, ax = plt.subplots(1, 1, figsize=figsize)
+        ax.imshow(mat, aspect="auto", cmap=cmap, vmin=-1, vmax=1,
+                  interpolation="nearest", zorder=2)
+        ax.set_yticks([])
+        ax.set_xticks(range(len(names)))
+        ax.set_xticklabels(names, ha="right", rotation=30)
+        for x in range(len(names) - 1):
+            ax.axvline(x + .5, c="#222222", lw=3, zorder=3)
+        plt.tight_layout()
+
+        if fname is not None:
+            f.savefig(fname)
+
+    def to_csv(self, fname):
+        """Save the full design matrix to csv."""
+        self.design_matrix.to_csv(fname)
+
+    def to_fsl_files(self, fname, contrasts=None):
+        """Save to FEAT-style .mat and (optionally) .con files."""
+        pass
+
+    @property
+    def main_submatrix(self):
+        """Conditions (no derivatives) and regressors."""
+        return self.design_matrix[self._main_names]
+
+    @property
+    def condition_submatrix(self):
+        """Only condition information."""
+        return self.design_matrix[self._condition_names]
+
+    @property
+    def confound_submatrix(self):
+        """Submatrix of confound regressors."""
+        if not self._confound_names:
+            return None
+        return self.design_matrix[self._confound_names]
+
+    @property
+    def artifact_submatrix(self):
+        """Submatrix of artifact regressors."""
+        if not self._artifact_names:
+            return None
+        return self.design_matrix[self._artifact_names]
 
 
 def fsl_highpass_matrix(n_tp, cutoff, tr=2):
