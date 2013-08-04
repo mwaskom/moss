@@ -117,10 +117,71 @@ class FIR(HRFModel):
 
 
 class DesignMatrix(object):
-    """fMRI-specific design matrix object."""
+    """fMRI-specific design matrix object.
+
+    This class creates a design matrix that is most directly consistent with
+    FSL; i.e., the design is filtered with the gaussian running-line approach
+    implemented by fslmaths, and the columns are de-meaned (so there is no
+    constant regressor in the final model).
+
+    The matrix is represented by a Pandas DataFrame with the ev names in the
+    columns and the frametimes in the index. In addition to the full design
+    matrix, this object also exposes views on some subsets of the data:
+
+    - main_submatrix
+        the condition evs that are created from the experimental design
+        along with any continuous regressors or interest. if the HRF
+        model includes a temporal derivative, those columns are not
+        included in this submatrix
+    - condition_submatrix
+        only the condition ev columns
+    - confound_submatrix
+        the continuous evs considered representing nuisance variables
+    - artifact_submatrix
+        the set of indicator vectors used to censor individual frames
+        from the model
+
+    In the case where one of these components does not exist in the
+    matrix (e.g., no frames had artifacts), these attributes are `None`.
+
+    """
     def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
                  artifacts=None, tr=2, hpf_cutoff=128, oversampling=16):
-        """Initialize the design matrix object."""
+        """Initialize the design matrix object.
+
+        Parameters
+        ----------
+        design : DataFrame
+            at a minimum, this dataframe must have `condition` and `onset`
+            columns. the `duration` and `value` (aka amplitude) of each element
+            can also be specified, with a default duration of 0 (i.e. an
+            impulse) and value of 1 when absent. onset and duration are in
+            seconds. the design conditions are the sorted unique values
+            in the condition column.
+        hrf_model : HRFModel class
+            this class must specify its own "convolution" semantics
+        ntp : int
+            number of timepoints in the data
+        regressors : array or DataFrame
+            other regressors of interest (e.g. timecourse of data from some
+            seed ROI). if a DataFrame, index must have the frametimes and
+            match those inferred from the `ntp` and `tr` arguments. the
+            columns are de-meaned, but not filtered or otherwise transformed.
+        confounds : array or DataFrame
+            similar to `regressors`, but considered to be of no interest
+            (e.g., motion parameters).
+        artifacts : boolean(esque) array with length equal to `ntp`
+            a mask indicating frames that have some kind of artifact. this
+            information is transformed into a set of indicator vectors.
+        tr : float
+            sampling interval (in seconds) of the data/design
+        hpf_cutoff : float
+            filter cutoff (in seconds), or None to skip the filter
+        oversampling : float
+            construction of the condition evs and convolution
+            are performed on high-resolution data with this oversampling
+
+        """
         if "duration" not in design:
             design["duration"] = 0
         if "value" not in design:
@@ -134,17 +195,15 @@ class DesignMatrix(object):
         self._condition_names = pd.Series(condition_names, name="conditions")
         self._ntp = ntp
 
-        # Convolve the oversampled condition regressors
+        # Convolve the oversampled condition evs
         self._make_hires_base(oversampling)
         self._convolve(hrf_model)
 
-        # Subsample the condition regressors and highpass filter
+        # Subsample the condition evs and highpass filter
         conditions = self._subsample_condition_matrix()
         conditions -= conditions.mean()
         if hpf_cutoff is not None:
-            filtered_conditions = self._highpass_filter(conditions, hpf_cutoff)
-        else:
-            filtered_conditions = conditions
+            conditions = self._highpass_filter(conditions, hpf_cutoff)
 
         # Set up the other regressors of interest
         regressors = self._validate_component(regressors, "regressor")
@@ -163,7 +222,7 @@ class DesignMatrix(object):
                 artifacts = None
 
         # Now build the full design matrix
-        pieces = [filtered_conditions]
+        pieces = [conditions]
         if regressors is not None:
             pieces.append(regressors)
         if confounds is not None:
@@ -205,22 +264,22 @@ class DesignMatrix(object):
         for cond in self._condition_names:
             cond_info = self.design[self.design.condition == cond]
             cond_info = cond_info[["onset", "duration", "value"]]
-            regressor = self._make_hires_regressor_base(cond_info)
-            hires_base[cond] = regressor
+            ev = self._make_hires_ev_base(cond_info)
+            hires_base[cond] = ev
         self._hires_base = hires_base
 
-    def _make_hires_regressor_base(self, info):
-        """Oversample a condition regressor."""
+    def _make_hires_ev_base(self, info):
+        """Oversample a condition ev vector."""
         hft = self._hires_frametimes
 
         # Get the condition information
         onsets, durations, vals = info.values.T
 
-        # Make the regressor timecourse
+        # Make the ev timecourse
         tmax = len(hft)
-        regressor = np.zeros_like(hft).astype(np.float)
+        ev = np.zeros_like(hft).astype(np.float)
         t_onset = np.minimum(np.searchsorted(hft, onsets), tmax - 1)
-        regressor[t_onset] += vals
+        ev[t_onset] += vals
         t_offset = np.minimum(np.searchsorted(hft, onsets + durations),
                               len(hft) - 1)
 
@@ -229,13 +288,13 @@ class DesignMatrix(object):
             if off < (tmax - 1) and off == t_onset[i]:
                 t_offset[i] += 1
 
-        regressor[t_offset] -= vals
-        regressor = np.cumsum(regressor)
+        ev[t_offset] -= vals
+        ev = np.cumsum(ev)
 
-        return regressor
+        return ev
 
     def _convolve(self, hrf_model):
-        """Convolve the condition regressors with the HRF model."""
+        """Convolve the condition evs with the HRF model."""
         self._hires_X = self._hires_base.copy()
         for cond in self._condition_names:
             res = hrf_model.convolve(self._hires_base[cond],
@@ -279,15 +338,26 @@ class DesignMatrix(object):
             mat[key] = np.dot(F, vals)
         return mat
 
-    def contrast_vector(self, cols, contrast):
-        """Return a full contrast vector given conditions and weightings."""
+    def contrast_vector(self, names, weights):
+        """Return a full contrast vector given condition names and weights."""
         vector = np.zeros(self.design_matrix.shape[1])
-        for name, val in zip(cols, contrast):
-            vector[self.design_matrix.columns == name] = val
+        for name, weight in zip(names, weights):
+            vector[self.design_matrix.columns == name] = weight
         return vector
 
     def plot(self, kind="main", fname=None, cmap="bone"):
-        """Draw an image representation of the design matrxi."""
+        """Draw an image representation of the design matrix.
+
+        Parameters
+        ----------
+        kind : string
+            which submatrix to plot, or "full" for the whole matrix
+        fname : string, optional
+            if provided, save the plot to this file name
+        cmap : string or colormap object
+            colormap for the plot
+
+        """
         names = getattr(self, "_%s_names" % kind)
         mat = self.design_matrix[names]
         mat = mat / mat.abs().max()
