@@ -238,6 +238,18 @@ def test_design_matrix_condition_defaults():
     npt.assert_array_equal(X1.design.duration.values, np.zeros(2))
 
 
+def test_design_matrix_frametimes():
+    """Test the regular and hires frametimes."""
+    hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                          onset=[5, 10]))
+
+    X1 = glm.DesignMatrix(design, hrf, 20, oversampling=2)
+    nt.assert_equal(len(X1.frametimes), 20)
+    nt.assert_equal(len(X1._hires_frametimes), 40)
+    npt.assert_array_equal(X1.frametimes, X1._hires_frametimes[::2])
+
+
 def test_highpass_matrix_shape():
     """Test the filter matrix is the right shape."""
     for n_tp in 10, 100:

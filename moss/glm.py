@@ -131,6 +131,10 @@ class DesignMatrix(object):
     implemented by fslmaths, and the columns are de-meaned (so there is no
     constant regressor in the final model).
 
+    Note that only the regressors resulting from the passed design are
+    high-pass filtered. If your other regressors of interest, or confound
+    regressors must be filtered, it is up to you to filter them on your own.
+
     The matrix is represented by a Pandas DataFrame with the ev names in the
     columns and the frametimes in the index. In addition to the full design
     matrix, this object also exposes views on some subsets of the data:
@@ -162,9 +166,9 @@ class DesignMatrix(object):
             at a minimum, this dataframe must have `condition` and `onset`
             columns. the `duration` and `value` (aka amplitude) of each element
             can also be specified, with a default duration of 0 (i.e. an
-            impulse) and value of 1 when absent. onset and duration are in
-            seconds. the design conditions are the sorted unique values
-            in the condition column.
+            impulse) and value of 1. onset and duration are specified in
+            seconds. the resulting design conditions are formed from the sorted
+            unique value in the condition column.
         hrf_model : HRFModel class
             this class must specify its own "convolution" semantics
         ntp : int
@@ -269,6 +273,9 @@ class DesignMatrix(object):
         self._confound_names = conf_names
         self._artifact_names = art_names
         self._pp_heights = pp_heights
+
+        self._singular_values = np.linalg.svd(self.design_matrix.values,
+                                              compute_uv=False)
 
     def __repr__(self):
         """Represent the object with the design matrix."""
@@ -402,7 +409,7 @@ class DesignMatrix(object):
         if fname is not None:
             f.savefig(fname)
 
-    def plot_confound_correlation(self, fname=None):
+    def plot_confound_correlation(self, fname=None, legend=True):
         """Plot how correlated the condition and confound regressors are."""
         corrs = self.design_matrix.corr()
         corrs = corrs.loc[self._confound_names, self._condition_names]
@@ -416,11 +423,13 @@ class DesignMatrix(object):
         colors = sns.husl_palette(n_conf)
 
         for i, (cond, conf_corrs) in enumerate(corrs.iteritems()):
-            ax.bar(np.linspace(i, i + 1, n_conf + 1)[:-1], conf_corrs.abs(),
-                   width=1 / n_conf, color=colors, linewidth=0)
+            barpos = np.linspace(i, i + 1, n_conf + 1)[:-1]
+            bars = ax.bar(barpos, conf_corrs.abs(), width=1 / n_conf,
+                          color=colors, linewidth=0)
 
         ax.set_xticks(np.arange(len(self._condition_names)) + 0.5)
         ax.set_xticklabels(self._condition_names)
+        ax.set_xlim(0, len(self._condition_names))
         ax.xaxis.grid(False)
 
         ymin, ymax = ax.get_ylim()
@@ -428,13 +437,24 @@ class DesignMatrix(object):
         ax.set_ylim(0, ymax)
         ax.set_ylabel("abs(correlation)")
 
+        for x in range(1, len(self._condition_names)):
+            ax.axvline(x, ls=":", c="#222222", lw=1)
+
+        if legend:
+            ncol = len(self._confound_names) // 15 + 1
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0,
+                             box.width * (1 - .15 * ncol), box.height])
+            ax.legend(bars, self._confound_names, ncol=ncol,
+                      loc='center left', bbox_to_anchor=(1, 0.5))
+
         plt.tight_layout()
         if fname is not None:
             f.savefig(fname)
 
     def plot_singular_values(self, fname=None):
         """Plot the singular values of the full design matrix."""
-        s = np.linalg.svd(self.design_matrix, compute_uv=False)
+        s = self._singular_values
         smat = s * np.eye(len(s))
 
         size = min(.3 * len(s), 8)
@@ -521,14 +541,14 @@ class DesignMatrix(object):
 
 
 
-def fsl_highpass_matrix(n_tp, cutoff, tr=2):
+def fsl_highpass_matrix(ntp, cutoff, tr=2):
     """Return an array to implement FSL's gaussian running line filter.
 
     To implement the filter, premultiply your data with this array.
 
     Parameters
     ----------
-    n_tp : int
+    ntp : int
         number of observations in data
     cutoff : float
         filter cutoff in seconds
@@ -537,26 +557,26 @@ def fsl_highpass_matrix(n_tp, cutoff, tr=2):
 
     Return
     ------
-    F : n_tp square array
+    F : ntp square array
         filter matrix
 
     """
     cutoff = cutoff / tr
     sig2n = np.square(cutoff / np.sqrt(2))
 
-    kernel = np.exp(-np.square(np.arange(n_tp)) / (2 * sig2n))
+    kernel = np.exp(-np.square(np.arange(ntp)) / (2 * sig2n))
     kernel = 1 / np.sqrt(2 * np.pi * sig2n) * kernel
 
     K = sp.linalg.toeplitz(kernel)
     K = np.dot(np.diag(1 / K.sum(axis=1)), K)
 
-    H = np.zeros((n_tp, n_tp))
-    X = np.column_stack((np.ones(n_tp), np.arange(n_tp)))
-    for k in xrange(n_tp):
+    H = np.zeros((ntp, ntp))
+    X = np.column_stack((np.ones(ntp), np.arange(ntp)))
+    for k in xrange(ntp):
         W = np.diag(K[k])
         hat = np.dot(np.dot(X, np.linalg.pinv(np.dot(W, X))), W)
         H[k] = hat[k]
-    F = np.eye(n_tp) - H
+    F = np.eye(ntp) - H
     return F
 
 
@@ -583,11 +603,11 @@ def fsl_highpass_filter(data, cutoff=128, tr=2, copy=True):
     if copy:
         data = data.copy()
     # Ensure data is in right shape
-    n_tp = len(data)
-    data = np.atleast_2d(data).reshape(n_tp, -1)
+    ntp = len(data)
+    data = np.atleast_2d(data).reshape(ntp, -1)
 
     # Filter each column of the data
-    F = fsl_highpass_matrix(n_tp, cutoff, tr)
+    F = fsl_highpass_matrix(ntp, cutoff, tr)
     data[:] = np.dot(F, data)
 
     return data.squeeze()
