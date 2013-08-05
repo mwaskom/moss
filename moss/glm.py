@@ -7,6 +7,7 @@ import pandas as pd
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
 
+import seaborn as sns
 
 class HRFModel(object):
     """Abstract class definition for HRF Models."""
@@ -31,7 +32,7 @@ class IdentityHRF(object):
 
 class GammaDifferenceHRF(HRFModel):
     """Canonical difference of gamma variates HRF model."""
-    def __init__(self, tr=2, oversampling=16, temporal_deriv=False,
+    def __init__(self, temporal_deriv=False, tr=2, oversampling=16,
                  kernel_secs=32, pos_shape=4, pos_scale=2,
                  neg_shape=7, neg_scale=2, ratio=.3):
         """Create the HRF object with Glover parameters as default."""
@@ -256,7 +257,7 @@ class DesignMatrix(object):
             pp_heights += (confounds.max() - confounds.min()).tolist()
         if artifacts is not None:
             art_names = artifacts.columns.tolist()
-            pp_heights += (artifacts.max() - artifacts.min())
+            pp_heights += (artifacts.max() - artifacts.min()).tolist()
         self._full_names = X.columns.tolist()
         self._main_names = main_names
         self._confound_names = conf_names
@@ -331,7 +332,7 @@ class DesignMatrix(object):
         frametime_midpoints = self.frametimes + self.tr / 2
         for key, vals in self._hires_conditions.iteritems():
             resampler = sp.interpolate.interp1d(self._hires_frametimes, vals,
-                                                kind="linear")
+                                                kind="nearest")
             condition_X[key] = resampler(frametime_midpoints)
 
         return condition_X
@@ -367,7 +368,7 @@ class DesignMatrix(object):
             vector[self.design_matrix.columns == name] = weight
         return vector
 
-    def plot(self, kind="main", fname=None, cmap="bone"):
+    def plot(self, kind="full", fname=None, cmap="bone"):
         """Draw an image representation of the design matrix.
 
         Parameters
@@ -381,21 +382,67 @@ class DesignMatrix(object):
 
         """
         names = getattr(self, "_%s_names" % kind)
-        mat = self.design_matrix[names]
-        mat = mat / mat.abs().max()
+        mat = self.design_matrix[names].copy()
+        mat -= mat.min()
+        mat /= mat.max()
 
-        x, y = .66 * mat.shape[1], .02 * mat.shape[0]
+        x, y = .66 * mat.shape[1], .04 * mat.shape[0]
         figsize = min(x, 10), min(y, 14)
         f, ax = plt.subplots(1, 1, figsize=figsize)
-        ax.imshow(mat, aspect="auto", cmap=cmap, vmin=-1, vmax=1,
+        ax.imshow(mat, aspect="auto", cmap=cmap, vmin=-.2, vmax=1.2,
                   interpolation="nearest", zorder=2)
         ax.set_yticks([])
         ax.set_xticks(range(len(names)))
         ax.set_xticklabels(names, ha="right", rotation=30)
         for x in range(len(names) - 1):
-            ax.axvline(x + .5, c="#222222", lw=3, zorder=3)
+            ax.axvline(x + .5, c="k", lw=3, zorder=3)
         plt.tight_layout()
 
+        if fname is not None:
+            f.savefig(fname)
+
+    def plot_confound_correlation(self, fname=None):
+        """Plot how correlated the condition and confound regressors are."""
+        corrs = self.design_matrix.corr()
+        corrs = corrs.loc[self._confound_names, self._condition_names]
+
+        n_bars = len(self._condition_names) * len(self._confound_names)
+        xsize = min(n_bars * .2, 10)
+        figsize = (xsize, 4)
+
+        f, ax = plt.subplots(1, 1, figsize=figsize)
+        n_conf = corrs.shape[0]
+        colors = sns.husl_palette(n_conf)
+
+        for i, (cond, conf_corrs) in enumerate(corrs.iteritems()):
+            ax.bar(np.linspace(i, i + 1, n_conf + 1)[:-1], conf_corrs.abs(),
+                   width=1 / n_conf, color=colors, linewidth=0)
+
+        ax.set_xticks(np.arange(len(self._condition_names)) + 0.5)
+        ax.set_xticklabels(self._condition_names)
+        ax.xaxis.grid(False)
+
+        ymin, ymax = ax.get_ylim()
+        ymax = max(.25, ymax)
+        ax.set_ylim(0, ymax)
+        ax.set_ylabel("abs(correlation)")
+
+        plt.tight_layout()
+        if fname is not None:
+            f.savefig(fname)
+
+    def plot_singular_values(self, fname=None):
+        """Plot the singular values of the full design matrix."""
+        s = np.linalg.svd(self.design_matrix, compute_uv=False)
+        smat = s * np.eye(len(s))
+
+        size = min(.3 * len(s), 8)
+        f, ax = plt.subplots(1, 1, figsize=(size, size))
+        ax.matshow(smat, cmap="bone", zorder=2)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        plt.tight_layout()
         if fname is not None:
             f.savefig(fname)
 
@@ -433,7 +480,6 @@ class DesignMatrix(object):
             Cs = []
             for _, names, weights in contrasts:
                 Cs.append(self.contrast_vector(names, weights))
-
             C_all = np.array(Cs)
 
             sio = StringIO()
@@ -466,6 +512,12 @@ class DesignMatrix(object):
         if not self._artifact_names:
             return None
         return self.design_matrix[self._artifact_names]
+
+    @property
+    def shape(self):
+        """Shape of the full design matrix."""
+        return self.design_matrix.shape
+
 
 
 def fsl_highpass_matrix(n_tp, cutoff, tr=2):
