@@ -86,10 +86,9 @@ class GammaDifferenceHRF(HRFModel):
 
         # Without frametimes, assume data and kernel have same sampling
         if frametimes is None:
-            orig_ntp = (ntp - 1) / self._oversampling
-            orig_max = (orig_ntp - 1) * self._tr
-            this_max = orig_max * (1 + 1 / (orig_ntp - 1))
-            frametimes = np.linspace(0, this_max, ntp)
+            orig_ntp = ntp / self._oversampling
+            frametimes = np.arange(0, orig_ntp * self._tr,
+                                   self._tr / self._oversampling)
 
         # Get the output name for this condition
         if name is None:
@@ -197,8 +196,15 @@ class DesignMatrix(object):
 
         self.design = design
         self.tr = tr
-        frametimes = np.arange(0, ntp * tr, tr, np.float)
+
+        stop = ntp * tr
+        frametimes = np.arange(0, stop, tr, np.float)
         self.frametimes = pd.Series(frametimes, name="frametimes")
+
+        stop = stop + 1 if oversampling == 1 else stop
+        hires_frametimes = np.arange(0, stop, tr / oversampling, np.float)
+        self._hires_frametimes = hires_frametimes
+
         condition_names = np.sort(design.condition.unique())
         self._condition_names = pd.Series(condition_names, name="conditions")
         self._ntp = ntp
@@ -225,7 +231,7 @@ class DesignMatrix(object):
             if artifacts.any():
                 n_art = artifacts.sum()
                 art = np.zeros((artifacts.size, n_art))
-                art[np.where(artifacts), np.arange(n_art)] = 1
+                art[np.where(artifacts.astype(bool)), np.arange(n_art)] = 1
                 artifacts = self._validate_component(art, "artifact")
             else:
                 artifacts = None
@@ -274,11 +280,6 @@ class DesignMatrix(object):
 
     def _make_hires_base(self, oversampling):
         """Make the oversampled condition base submatrix."""
-        hires_max = self.frametimes.max() * (1 + 1 / (self._ntp - 1))
-        hires_ntp = self._ntp * oversampling + 1
-        self._hires_ntp = hires_ntp
-        self._hires_frametimes = np.linspace(0, hires_max, hires_ntp)
-
         hires_base = pd.DataFrame(columns=self._condition_names,
                                   index=self._hires_frametimes)
 
