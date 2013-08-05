@@ -157,7 +157,8 @@ class DesignMatrix(object):
 
     """
     def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
-                 artifacts=None, tr=2, hpf_cutoff=128, oversampling=16):
+                 artifacts=None, condition_names=None, tr=2, hpf_cutoff=128,
+                 oversampling=16):
         """Initialize the design matrix object.
 
         Parameters
@@ -167,8 +168,9 @@ class DesignMatrix(object):
             columns. the `duration` and `value` (aka amplitude) of each element
             can also be specified, with a default duration of 0 (i.e. an
             impulse) and value of 1. onset and duration are specified in
-            seconds. the resulting design conditions are formed from the sorted
-            unique value in the condition column.
+            seconds. if a value is not fiven for `condition names`, the
+            resulting design is formed from the sorted unique value in the
+            condition column.
         hrf_model : HRFModel class
             this class must specify its own "convolution" semantics
         ntp : int
@@ -184,6 +186,11 @@ class DesignMatrix(object):
         artifacts : boolean(esque) array with length equal to `ntp`
             a mask indicating frames that have some kind of artifact. this
             information is transformed into a set of indicator vectors.
+        condition_names : list of string
+            a subset of the names that can be found in the `condition`
+            column of the design dataframe. can be used to exclude conditions
+            from a particualr design or reorder the columns in the resulting
+            matrix.
         tr : float
             sampling interval (in seconds) of the data/design
         hpf_cutoff : float
@@ -209,8 +216,10 @@ class DesignMatrix(object):
         hires_frametimes = np.arange(0, stop, tr / oversampling, np.float)
         self._hires_frametimes = hires_frametimes
 
-        condition_names = np.sort(design.condition.unique())
+        if condition_names is None:
+            condition_names = np.sort(design.condition.unique())
         self._condition_names = pd.Series(condition_names, name="conditions")
+        
         self._ntp = ntp
 
         # Convolve the oversampled condition evs
@@ -272,8 +281,9 @@ class DesignMatrix(object):
         self._main_names = main_names
         self._confound_names = conf_names
         self._artifact_names = art_names
-        self._pp_heights = pp_heights
 
+        # Here is the additional design information
+        self._pp_heights = pp_heights
         self._singular_values = np.linalg.svd(self.design_matrix.values,
                                               compute_uv=False)
 

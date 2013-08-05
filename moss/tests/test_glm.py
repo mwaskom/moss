@@ -185,6 +185,22 @@ def test_design_matrix_conditions():
     nt.assert_equal(x_max, [5, 10])
 
 
+def test_design_matrix_condition_names():
+    """Test that we can specify condition names."""
+    hrf = glm.IdentityHRF()
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                          onset=[5, 10]))
+    X1 = glm.DesignMatrix(design, hrf, 15)
+    nt.assert_equal(X1._condition_names.tolist(), ["one", "two"])
+
+    X2 = glm.DesignMatrix(design, hrf, 15, condition_names=["two", "one"])
+    nt.assert_equal(X2._condition_names.tolist(), ["two", "one"])
+
+    X3 = glm.DesignMatrix(design, hrf, 15, condition_names=["one"])
+    nt.assert_equal(X3._condition_names.tolist(), ["one"])
+    nt.assert_equal(X3.shape, (15, 1))
+
+
 def test_design_matrix_artifacts():
     """Test the creation of artifact regressors."""
     hrf = glm.IdentityHRF()
