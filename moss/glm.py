@@ -1,5 +1,6 @@
 from __future__ import division
 
+from StringIO import StringIO
 import numpy as np
 import scipy as sp
 import pandas as pd
@@ -20,6 +21,12 @@ class HRFModel(object):
     def convolve(self, data):
         """Convolve the kernel with some data."""
         raise NotImplementedError
+
+
+class IdentityHRF(object):
+    """HRF that does not transform the data. Mostly useful for testing."""
+    def convolve(self, data, frametimes, name):
+        return pd.DataFrame({name: data}, index=frametimes)
 
 
 class GammaDifferenceHRF(HRFModel):
@@ -202,6 +209,7 @@ class DesignMatrix(object):
         # Subsample the condition evs and highpass filter
         conditions = self._subsample_condition_matrix()
         conditions -= conditions.mean()
+        pp_heights = (conditions.max() - conditions.min()).tolist()
         if hpf_cutoff is not None:
             conditions = self._highpass_filter(conditions, hpf_cutoff)
 
@@ -242,14 +250,26 @@ class DesignMatrix(object):
         main_names = self._condition_names.tolist()
         if regressors is not None:
             main_names += regressors.columns.tolist()
+            pp_heights += (regressors.max() - regressors.min()).tolist()
         if confounds is not None:
             conf_names = confounds.columns.tolist()
+            pp_heights += (confounds.max() - confounds.min()).tolist()
         if artifacts is not None:
             art_names = artifacts.columns.tolist()
+            pp_heights += (artifacts.max() - artifacts.min())
         self._full_names = X.columns.tolist()
         self._main_names = main_names
         self._confound_names = conf_names
         self._artifact_names = art_names
+        self._pp_heights = pp_heights
+
+    def __repr__(self):
+        """Represent the object with the design matrix."""
+        return self.design_matrix.__repr__()
+
+    def _repr_html_(self):
+        """Represent the object with the design matrix."""
+        return self.design_matrix._repr_html_()
 
     def _make_hires_base(self, oversampling):
         """Make the oversampled condition base submatrix."""
@@ -295,21 +315,23 @@ class DesignMatrix(object):
 
     def _convolve(self, hrf_model):
         """Convolve the condition evs with the HRF model."""
-        self._hires_X = self._hires_base.copy()
+        self._hires_conditions = self._hires_base.copy()
         for cond in self._condition_names:
             res = hrf_model.convolve(self._hires_base[cond],
-                                     self._hires_frametimes)
+                                     self._hires_frametimes,
+                                     cond)
             for key, vals in res.iteritems():
-                self._hires_X[key] = vals
+                self._hires_conditions[key] = vals
 
     def _subsample_condition_matrix(self):
         """Sample the hires convolved matrix at the TR midpoint."""
-        condition_X = pd.DataFrame(columns=self._hires_X.columns,
+        condition_X = pd.DataFrame(columns=self._hires_conditions.columns,
                                    index=self.frametimes)
 
         frametime_midpoints = self.frametimes + self.tr / 2
-        for key, vals in self._hires_X.iteritems():
-            resampler = sp.interpolate.interp1d(self._hires_frametimes, vals)
+        for key, vals in self._hires_conditions.iteritems():
+            resampler = sp.interpolate.interp1d(self._hires_frametimes, vals,
+                                                kind="linear")
             condition_X[key] = resampler(frametime_midpoints)
 
         return condition_X
@@ -381,9 +403,45 @@ class DesignMatrix(object):
         """Save the full design matrix to csv."""
         self.design_matrix.to_csv(fname)
 
-    def to_fsl_files(self, fname, contrasts=None):
-        """Save to FEAT-style .mat and (optionally) .con files."""
-        pass
+    def to_fsl_files(self, fstem, contrasts=None):
+        """Save to FEAT-style {fstem}.mat and optionally {fstem}.con files."""
+        m, n = self.design_matrix.shape
+        header = "/NumWaves\t%d\n/NumPoints\t%d\n/PPheights\t\t%s\n"
+        heights = "\t".join(["%7.7g" % p for p in self._pp_heights])
+        header %= (m, n, heights)
+
+        header += "\n/Matrix\n"
+
+        sio = StringIO()
+        self.design_matrix.to_csv(sio, "\t", float_format="%7.7g",
+                                  header=False, index=False)
+
+        with open(fstem + ".mat", "w") as fid:
+            fid.write(header)
+            fid.write(sio.getvalue())
+
+        if contrasts is not None:
+            n_cont = len(contrasts)
+            names = [c[0] for c in contrasts]
+            header = ""
+            for i_name in enumerate(names, 1):
+                header += "/ContrastName%d\t%s\n" % i_name
+
+            header += "/NumWaves\t%d\n/NumContrasts\t%d\n" % (n, n_cont)
+            header += "/PPheights\t\t\n/RequiredEffect\t\t\n\n/Matrix\n"
+
+            Cs = []
+            for _, names, weights in contrasts:
+                Cs.append(self.contrast_vector(names, weights))
+
+            C_all = np.array(Cs)
+
+            sio = StringIO()
+            np.savetxt(sio, C_all, fmt="%7.7g", delimiter=" ")
+
+            with open(fstem + ".con", "w") as fid:
+                fid.write(header)
+                fid.write(sio.getvalue())
 
     @property
     def main_submatrix(self):
