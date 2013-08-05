@@ -366,7 +366,9 @@ class DesignMatrix(object):
             names = pd.Series([name_base + "_%d"] * n) % range(n)
             comp = pd.DataFrame(comp, self.frametimes, names)
 
-        if not np.all(comp.index == self.frametimes):
+        frametimes_match = (np.all(comp.index == self.frametimes) or
+                            np.all(comp.index == np.arange(len(comp))))
+        if not frametimes_match:
             err = "Frametimes for %ss do not match design." % name_base
             raise ValueError(err)
 

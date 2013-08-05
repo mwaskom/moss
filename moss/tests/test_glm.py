@@ -201,6 +201,24 @@ def test_design_matrix_condition_names():
     nt.assert_equal(X3.shape, (15, 1))
 
 
+def test_design_matrix_contrast_vector():
+    """Test that we get the right contrast vector under various conditions."""
+    hrf = glm.IdentityHRF()
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                          onset=[5, 10]))
+    X1 = glm.DesignMatrix(design, hrf, 15)
+    C1 = X1.contrast_vector(["one", "two"], [1, -1])
+    nt.assert_equal(C1.tolist(), [1, -1])
+    C2 = X1.contrast_vector(["two", "one"], [1, -1])
+    nt.assert_equal(C2.tolist(), [-1, 1])
+
+    X2 = glm.DesignMatrix(design, hrf, 15,
+                          regressors=np.random.randn(15, 1),
+                          confounds=np.random.randn(15, 1))
+    C3 = X2.contrast_vector(["regressor_0"], [1])
+    nt.assert_equal(C3.tolist(), [0, 0, 1, 0])
+
+
 def test_design_matrix_artifacts():
     """Test the creation of artifact regressors."""
     hrf = glm.IdentityHRF()
