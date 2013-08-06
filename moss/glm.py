@@ -505,7 +505,7 @@ class DesignMatrix(object):
         m, n = self.design_matrix.shape
         header = "/NumWaves\t%d\n/NumPoints\t%d\n/PPheights\t\t%s\n"
         heights = "\t".join(["%7.7g" % p for p in self._pp_heights])
-        header %= (m, n, heights)
+        header %= (n, m, heights)
 
         header += "\n/Matrix\n"
 
