@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy import signal
+from sklearn.decomposition import PCA
 
 import nose.tools as nt
 import numpy.testing as npt
@@ -246,6 +247,7 @@ def test_design_matrix_artifacts():
     art_vals = X5.artifact_submatrix.artifact_2.unique().tolist()
     npt.assert_almost_equal(art_vals, [-1. / 15, 14. / 15])
 
+
 def test_design_matrix_demeaned():
     """Make sure the design matrix is de-meaned."""
     hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
@@ -255,11 +257,12 @@ def test_design_matrix_demeaned():
     artifacts[10] = 1
     X = glm.DesignMatrix(design, hrf, 15,
                          regressors=np.random.randn(15, 3) + 2,
-                         confounds=(np.random.randn(15, 3) + 
+                         confounds=(np.random.randn(15, 3) +
                                     np.random.rand(3)),
                          artifacts=artifacts)
     npt.assert_array_almost_equal(X.design_matrix.mean().values,
                                   np.zeros(11))
+
 
 def test_design_matrix_condition_defaults():
     """Test the condition creation."""
@@ -282,6 +285,20 @@ def test_design_matrix_frametimes():
     nt.assert_equal(len(X1.frametimes), 20)
     nt.assert_equal(len(X1._hires_frametimes), 40)
     npt.assert_array_equal(X1.frametimes, X1._hires_frametimes[::2])
+
+
+def test_design_matrix_confound_pca():
+    """Test the PCA transformation of the confound matrix."""
+    hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
+    design = pd.DataFrame(dict(condition=["one", "two"], onset=[5, 10]))
+    confounds = np.random.randn(20, 5)
+    confounds[:, 0] = confounds[:, 1] + np.random.randn(20)
+    pca = PCA("mle").fit(confounds)
+    X = glm.DesignMatrix(design, hrf, 20,
+                         confounds=confounds,
+                         confound_pca=True)
+    n_confounds = X.confound_submatrix.shape[1]
+    nt.assert_equal(n_confounds, pca.n_components)
 
 
 def test_highpass_matrix_shape():

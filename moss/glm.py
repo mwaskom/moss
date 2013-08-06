@@ -5,6 +5,7 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 from scipy.stats import gamma
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 import seaborn as sns
@@ -157,8 +158,8 @@ class DesignMatrix(object):
 
     """
     def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
-                 artifacts=None, condition_names=None, tr=2, hpf_cutoff=128,
-                 oversampling=16):
+                 artifacts=None, condition_names=None, confound_pca=False,
+                 tr=2, hpf_cutoff=128, oversampling=16):
         """Initialize the design matrix object.
 
         Parameters
@@ -191,6 +192,9 @@ class DesignMatrix(object):
             column of the design dataframe. can be used to exclude conditions
             from a particualr design or reorder the columns in the resulting
             matrix.
+        confound_pca : bool
+            if True, transform the confound matrix with PCA (using a maximum
+            likelihood method to guess the dimensionality of the data)
         tr : float
             sampling interval (in seconds) of the data/design
         hpf_cutoff : float
@@ -238,6 +242,12 @@ class DesignMatrix(object):
 
         # Set up the confound submatrix
         confounds = self._validate_component(confounds, "confound")
+
+        if confound_pca:
+            pca = PCA("mle").fit_transform(confounds)
+            n_conf = pca.shape[1]
+            new_columns = pd.Series(["confound_%d"] * n_conf) % range(n_conf)
+            confounds = pd.DataFrame(pca, confounds.index, new_columns)
 
         # Set up the artifacts submatrix
         if artifacts is not None:
@@ -359,18 +369,25 @@ class DesignMatrix(object):
         """For components that can be an an array or df, build the df."""
         if comp is None:
             return None
+
+        n = comp.shape[1]
         try:
             names = comp.columns
         except AttributeError:
-            n = comp.shape[1]
             names = pd.Series([name_base + "_%d"] * n) % range(n)
             comp = pd.DataFrame(comp, self.frametimes, names)
+
+        if names.tolist() == range(n):
+            names = pd.Series([name_base + "_%d"] * n) % range(n)
+            comp.columns = names
 
         frametimes_match = (np.all(comp.index == self.frametimes) or
                             np.all(comp.index == np.arange(len(comp))))
         if not frametimes_match:
             err = "Frametimes for %ss do not match design." % name_base
             raise ValueError(err)
+
+        comp.index = self.frametimes
 
         return comp
 
