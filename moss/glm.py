@@ -1,6 +1,7 @@
 from __future__ import division
 
 from StringIO import StringIO
+import cPickle
 import numpy as np
 import scipy as sp
 import pandas as pd
@@ -538,6 +539,17 @@ class DesignMatrix(object):
             with open(fstem + ".con", "w") as fid:
                 fid.write(header)
                 fid.write(sio.getvalue())
+
+    def to_pickle(self, fname):
+        """Save the object as a pickle to a file."""
+        with open(fname, "w") as fid:
+            cPickle.dump(self, fid)
+
+    @classmethod
+    def from_pickle(cls, fname):
+        """Load an object from a pickled file."""
+        with open(fname, "r") as fid:
+            return cPickle.load(fid)
 
     @property
     def main_submatrix(self):
