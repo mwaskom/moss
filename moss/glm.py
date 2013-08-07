@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import seaborn as sns
 
+
 class HRFModel(object):
     """Abstract class definition for HRF Models."""
     def __init__(self):
@@ -224,7 +225,7 @@ class DesignMatrix(object):
         if condition_names is None:
             condition_names = np.sort(design.condition.unique())
         self._condition_names = pd.Series(condition_names, name="conditions")
-        
+
         self._ntp = ntp
 
         # Convolve the oversampled condition evs
@@ -292,6 +293,16 @@ class DesignMatrix(object):
         self._main_names = main_names
         self._confound_names = conf_names
         self._artifact_names = art_names
+
+        # Set up boolean arrays that can be used to mask beta vectors
+        cols = self.design_matrix.columns
+        self.main_vector = cols.isin(main_names).reshape(-1, 1)
+        self.condition_vector = cols.isin(self._condition_names).reshape(-1, 1)
+        self.confound_vector, self.artifact_vector = None, None
+        if confounds is not None:
+            self.confound_vector = cols.isin(conf_names).reshape(-1, 1)
+        if artifacts is not None:
+            self.artifact_vector = cols.isin(art_names).reshape(-1, 1)
 
         # Here is the additional design information
         self._pp_heights = pp_heights
@@ -475,12 +486,13 @@ class DesignMatrix(object):
             box = ax.get_position()
             ax.set_position([box.x0, box.y0,
                              box.width * (1 - .15 * ncol), box.height])
-            ax.legend(bars, self._confound_names, ncol=ncol,
-                      loc='center left', bbox_to_anchor=(1, 0.5))
+            lgd = ax.legend(bars, self._confound_names, ncol=ncol,
+                            loc='center left', bbox_to_anchor=(1, 0.5))
+        else:
+            lgd = []
 
-        plt.tight_layout()
         if fname is not None:
-            f.savefig(fname)
+            f.savefig(fname, bbox_extra_artists=[lgd], bbox_inches="tight")
 
     def plot_singular_values(self, fname=None):
         """Plot the singular values of the full design matrix."""
@@ -490,8 +502,7 @@ class DesignMatrix(object):
         size = min(.3 * len(s), 8)
         f, ax = plt.subplots(1, 1, figsize=(size, size))
         ax.matshow(smat, cmap="bone", zorder=2)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        ax.axis("off")
 
         plt.tight_layout()
         if fname is not None:
@@ -579,7 +590,6 @@ class DesignMatrix(object):
     def shape(self):
         """Shape of the full design matrix."""
         return self.design_matrix.shape
-
 
 
 def fsl_highpass_matrix(ntp, cutoff, tr=2):
