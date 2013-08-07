@@ -486,7 +486,7 @@ class DesignMatrix(object):
             box = ax.get_position()
             ax.set_position([box.x0, box.y0,
                              box.width * (1 - .15 * ncol), box.height])
-            lgd = ax.legend(bars, self._confound_names, ncol=ncol,
+            lgd = ax.legend(bars, self._confound_names, ncol=ncol, fontsize=10,
                             loc='center left', bbox_to_anchor=(1, 0.5))
         else:
             lgd = []
