@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 import nibabel as nib
 
-from nipype import fsl
-
 
 def locate_peaks(vox_coords):
     """Find most probable region in HarvardOxford Atlas of a vox coord."""
@@ -52,7 +50,11 @@ def shorten_name(region_name, atlas):
 
 def vox_to_mni(vox_coords):
     """Given ijk voxel coordinates, return xyz from image affine."""
-    mni_file = fsl.Info.standard_image("avg152T1.nii.gz")
+    try:
+        fsldir = os.environ["FSLDIR"]
+    except KeyError:
+        raise RuntimeError("vox_to_mni requires FSLDIR to be defined.")
+    mni_file = op.join(fsldir, "data/standard/avg152T1.nii.gz")
     aff = nib.load(mni_file).get_affine()
     mni_coords = np.zeros_like(vox_coords)
     for i, coord in enumerate(vox_coords):

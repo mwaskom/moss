@@ -3,7 +3,6 @@ import itertools
 import numpy as np
 import pandas as pd
 from scipy import stats
-from IPython.core.display import Javascript, display
 
 
 def df_to_struct(df):
@@ -84,15 +83,6 @@ def make_master_schedule(evs):
     timesorter = np.argsort(sched[:, 0])
     sched = sched[timesorter]
     return sched
-
-
-def save_notebook():
-    """Save an IPython notebook from running code.
-
-    Note this must be returned from a notebook cell.
-
-    """
-    display(Javascript('IPython.notebook.save_notebook()'))
 
 
 def sig_stars(p):

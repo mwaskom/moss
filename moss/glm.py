@@ -246,7 +246,7 @@ class DesignMatrix(object):
         confounds = self._validate_component(confounds, "confound")
 
         if confound_pca:
-            pca = PCA("mle").fit_transform(confounds)
+            pca = PCA(0.99).fit_transform(confounds)
             n_conf = pca.shape[1]
             new_columns = pd.Series(["confound_%d"] * n_conf) % range(n_conf)
             confounds = pd.DataFrame(pca, confounds.index, new_columns)

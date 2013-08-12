@@ -293,12 +293,16 @@ def test_design_matrix_confound_pca():
     design = pd.DataFrame(dict(condition=["one", "two"], onset=[5, 10]))
     confounds = np.random.randn(20, 5)
     confounds[:, 0] = confounds[:, 1] + np.random.randn(20)
-    pca = PCA("mle").fit(confounds)
+    pca = PCA(.99).fit(confounds)
     X = glm.DesignMatrix(design, hrf, 20,
                          confounds=confounds,
                          confound_pca=True)
     n_confounds = X.confound_submatrix.shape[1]
     nt.assert_equal(n_confounds, pca.n_components)
+
+    pca_all = PCA().fit(confounds)
+    good_dims = np.sum(pca_all.explained_variance_ratio_ > .01)
+    nt.assert_equal(n_confounds, good_dims)
 
 
 def test_highpass_matrix_shape():

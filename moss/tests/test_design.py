@@ -33,7 +33,7 @@ def test_cb1_prob():
 
 def test_cb1_cost():
 
-    # Test perfect 
+    # Test perfect transition matrix
     # (this won't actually ever happen)
     ideal = np.array([[.5, .5], [.5, .5]])
     test = ideal
@@ -42,4 +42,3 @@ def test_cb1_cost():
     # Now something less rosy
     test = np.array([[.4, .6], [.6, .4]])
     nt.assert_almost_equal(0.2, design.cb1_cost(ideal, test))
-
