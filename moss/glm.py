@@ -33,9 +33,9 @@ class IdentityHRF(object):
 class GammaDifferenceHRF(HRFModel):
     """Canonical difference of gamma variates HRF model."""
     def __init__(self, temporal_deriv=False, tr=2, oversampling=16,
-                 kernel_secs=32, pos_shape=4, pos_scale=2,
-                 neg_shape=7, neg_scale=2, ratio=.3):
-        """Create the HRF object with Glover parameters as default."""
+                 kernel_secs=32, pos_shape=6, pos_scale=1,
+                 neg_shape=16, neg_scale=1, ratio=1./6):
+        """Create the HRF object with FSL parameters as default."""
         self._rv_pos = gamma(pos_shape, scale=pos_scale)
         self._rv_neg = gamma(neg_shape, scale=neg_scale)
         self._tr = tr
