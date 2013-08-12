@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy import signal
+from sklearn.decomposition import PCA
 
 import nose.tools as nt
 import numpy.testing as npt
@@ -185,6 +186,40 @@ def test_design_matrix_conditions():
     nt.assert_equal(x_max, [5, 10])
 
 
+def test_design_matrix_condition_names():
+    """Test that we can specify condition names."""
+    hrf = glm.IdentityHRF()
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                          onset=[5, 10]))
+    X1 = glm.DesignMatrix(design, hrf, 15)
+    nt.assert_equal(X1._condition_names.tolist(), ["one", "two"])
+
+    X2 = glm.DesignMatrix(design, hrf, 15, condition_names=["two", "one"])
+    nt.assert_equal(X2._condition_names.tolist(), ["two", "one"])
+
+    X3 = glm.DesignMatrix(design, hrf, 15, condition_names=["one"])
+    nt.assert_equal(X3._condition_names.tolist(), ["one"])
+    nt.assert_equal(X3.shape, (15, 1))
+
+
+def test_design_matrix_contrast_vector():
+    """Test that we get the right contrast vector under various conditions."""
+    hrf = glm.IdentityHRF()
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                          onset=[5, 10]))
+    X1 = glm.DesignMatrix(design, hrf, 15)
+    C1 = X1.contrast_vector(["one", "two"], [1, -1])
+    nt.assert_equal(C1.tolist(), [1, -1])
+    C2 = X1.contrast_vector(["two", "one"], [1, -1])
+    nt.assert_equal(C2.tolist(), [-1, 1])
+
+    X2 = glm.DesignMatrix(design, hrf, 15,
+                          regressors=np.random.randn(15, 1),
+                          confounds=np.random.randn(15, 1))
+    C3 = X2.contrast_vector(["regressor_0"], [1])
+    nt.assert_equal(C3.tolist(), [0, 0, 1, 0])
+
+
 def test_design_matrix_artifacts():
     """Test the creation of artifact regressors."""
     hrf = glm.IdentityHRF()
@@ -212,6 +247,7 @@ def test_design_matrix_artifacts():
     art_vals = X5.artifact_submatrix.artifact_2.unique().tolist()
     npt.assert_almost_equal(art_vals, [-1. / 15, 14. / 15])
 
+
 def test_design_matrix_demeaned():
     """Make sure the design matrix is de-meaned."""
     hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
@@ -221,11 +257,12 @@ def test_design_matrix_demeaned():
     artifacts[10] = 1
     X = glm.DesignMatrix(design, hrf, 15,
                          regressors=np.random.randn(15, 3) + 2,
-                         confounds=(np.random.randn(15, 3) + 
+                         confounds=(np.random.randn(15, 3) +
                                     np.random.rand(3)),
                          artifacts=artifacts)
     npt.assert_array_almost_equal(X.design_matrix.mean().values,
                                   np.zeros(11))
+
 
 def test_design_matrix_condition_defaults():
     """Test the condition creation."""
@@ -236,6 +273,32 @@ def test_design_matrix_condition_defaults():
     X1 = glm.DesignMatrix(design1, hrf, 20)
     npt.assert_array_equal(X1.design.value.values, np.ones(2))
     npt.assert_array_equal(X1.design.duration.values, np.zeros(2))
+
+
+def test_design_matrix_frametimes():
+    """Test the regular and hires frametimes."""
+    hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                          onset=[5, 10]))
+
+    X1 = glm.DesignMatrix(design, hrf, 20, oversampling=2)
+    nt.assert_equal(len(X1.frametimes), 20)
+    nt.assert_equal(len(X1._hires_frametimes), 40)
+    npt.assert_array_equal(X1.frametimes, X1._hires_frametimes[::2])
+
+
+def test_design_matrix_confound_pca():
+    """Test the PCA transformation of the confound matrix."""
+    hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
+    design = pd.DataFrame(dict(condition=["one", "two"], onset=[5, 10]))
+    confounds = np.random.randn(20, 5)
+    confounds[:, 0] = confounds[:, 1] + np.random.randn(20)
+    pca = PCA("mle").fit(confounds)
+    X = glm.DesignMatrix(design, hrf, 20,
+                         confounds=confounds,
+                         confound_pca=True)
+    n_confounds = X.confound_submatrix.shape[1]
+    nt.assert_equal(n_confounds, pca.n_components)
 
 
 def test_highpass_matrix_shape():

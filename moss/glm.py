@@ -1,13 +1,16 @@
 from __future__ import division
 
 from StringIO import StringIO
+import cPickle
 import numpy as np
 import scipy as sp
 import pandas as pd
 from scipy.stats import gamma
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 import seaborn as sns
+
 
 class HRFModel(object):
     """Abstract class definition for HRF Models."""
@@ -131,6 +134,10 @@ class DesignMatrix(object):
     implemented by fslmaths, and the columns are de-meaned (so there is no
     constant regressor in the final model).
 
+    Note that only the regressors resulting from the passed design are
+    high-pass filtered. If your other regressors of interest, or confound
+    regressors must be filtered, it is up to you to filter them on your own.
+
     The matrix is represented by a Pandas DataFrame with the ev names in the
     columns and the frametimes in the index. In addition to the full design
     matrix, this object also exposes views on some subsets of the data:
@@ -153,7 +160,8 @@ class DesignMatrix(object):
 
     """
     def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
-                 artifacts=None, tr=2, hpf_cutoff=128, oversampling=16):
+                 artifacts=None, condition_names=None, confound_pca=False,
+                 tr=2, hpf_cutoff=128, oversampling=16):
         """Initialize the design matrix object.
 
         Parameters
@@ -162,9 +170,10 @@ class DesignMatrix(object):
             at a minimum, this dataframe must have `condition` and `onset`
             columns. the `duration` and `value` (aka amplitude) of each element
             can also be specified, with a default duration of 0 (i.e. an
-            impulse) and value of 1 when absent. onset and duration are in
-            seconds. the design conditions are the sorted unique values
-            in the condition column.
+            impulse) and value of 1. onset and duration are specified in
+            seconds. if a value is not fiven for `condition names`, the
+            resulting design is formed from the sorted unique value in the
+            condition column.
         hrf_model : HRFModel class
             this class must specify its own "convolution" semantics
         ntp : int
@@ -180,6 +189,14 @@ class DesignMatrix(object):
         artifacts : boolean(esque) array with length equal to `ntp`
             a mask indicating frames that have some kind of artifact. this
             information is transformed into a set of indicator vectors.
+        condition_names : list of string
+            a subset of the names that can be found in the `condition`
+            column of the design dataframe. can be used to exclude conditions
+            from a particualr design or reorder the columns in the resulting
+            matrix.
+        confound_pca : bool
+            if True, transform the confound matrix with PCA (using a maximum
+            likelihood method to guess the dimensionality of the data)
         tr : float
             sampling interval (in seconds) of the data/design
         hpf_cutoff : float
@@ -205,8 +222,10 @@ class DesignMatrix(object):
         hires_frametimes = np.arange(0, stop, tr / oversampling, np.float)
         self._hires_frametimes = hires_frametimes
 
-        condition_names = np.sort(design.condition.unique())
+        if condition_names is None:
+            condition_names = np.sort(design.condition.unique())
         self._condition_names = pd.Series(condition_names, name="conditions")
+
         self._ntp = ntp
 
         # Convolve the oversampled condition evs
@@ -225,6 +244,12 @@ class DesignMatrix(object):
 
         # Set up the confound submatrix
         confounds = self._validate_component(confounds, "confound")
+
+        if confound_pca:
+            pca = PCA("mle").fit_transform(confounds)
+            n_conf = pca.shape[1]
+            new_columns = pd.Series(["confound_%d"] * n_conf) % range(n_conf)
+            confounds = pd.DataFrame(pca, confounds.index, new_columns)
 
         # Set up the artifacts submatrix
         if artifacts is not None:
@@ -268,7 +293,21 @@ class DesignMatrix(object):
         self._main_names = main_names
         self._confound_names = conf_names
         self._artifact_names = art_names
+
+        # Set up boolean arrays that can be used to mask beta vectors
+        cols = self.design_matrix.columns
+        self.main_vector = cols.isin(main_names).reshape(-1, 1)
+        self.condition_vector = cols.isin(self._condition_names).reshape(-1, 1)
+        self.confound_vector, self.artifact_vector = None, None
+        if confounds is not None:
+            self.confound_vector = cols.isin(conf_names).reshape(-1, 1)
+        if artifacts is not None:
+            self.artifact_vector = cols.isin(art_names).reshape(-1, 1)
+
+        # Here is the additional design information
         self._pp_heights = pp_heights
+        self._singular_values = np.linalg.svd(self.design_matrix.values,
+                                              compute_uv=False)
 
     def __repr__(self):
         """Represent the object with the design matrix."""
@@ -342,16 +381,25 @@ class DesignMatrix(object):
         """For components that can be an an array or df, build the df."""
         if comp is None:
             return None
+
+        n = comp.shape[1]
         try:
             names = comp.columns
         except AttributeError:
-            n = comp.shape[1]
             names = pd.Series([name_base + "_%d"] * n) % range(n)
             comp = pd.DataFrame(comp, self.frametimes, names)
 
-        if not np.all(comp.index == self.frametimes):
+        if names.tolist() == range(n):
+            names = pd.Series([name_base + "_%d"] * n) % range(n)
+            comp.columns = names
+
+        frametimes_match = (np.all(comp.index == self.frametimes) or
+                            np.all(comp.index == np.arange(len(comp))))
+        if not frametimes_match:
             err = "Frametimes for %ss do not match design." % name_base
             raise ValueError(err)
+
+        comp.index = self.frametimes
 
         return comp
 
@@ -402,7 +450,7 @@ class DesignMatrix(object):
         if fname is not None:
             f.savefig(fname)
 
-    def plot_confound_correlation(self, fname=None):
+    def plot_confound_correlation(self, fname=None, legend=True):
         """Plot how correlated the condition and confound regressors are."""
         corrs = self.design_matrix.corr()
         corrs = corrs.loc[self._confound_names, self._condition_names]
@@ -416,11 +464,13 @@ class DesignMatrix(object):
         colors = sns.husl_palette(n_conf)
 
         for i, (cond, conf_corrs) in enumerate(corrs.iteritems()):
-            ax.bar(np.linspace(i, i + 1, n_conf + 1)[:-1], conf_corrs.abs(),
-                   width=1 / n_conf, color=colors, linewidth=0)
+            barpos = np.linspace(i, i + 1, n_conf + 1)[:-1]
+            bars = ax.bar(barpos, conf_corrs.abs(), width=1 / n_conf,
+                          color=colors, linewidth=0)
 
         ax.set_xticks(np.arange(len(self._condition_names)) + 0.5)
         ax.set_xticklabels(self._condition_names)
+        ax.set_xlim(0, len(self._condition_names))
         ax.xaxis.grid(False)
 
         ymin, ymax = ax.get_ylim()
@@ -428,20 +478,31 @@ class DesignMatrix(object):
         ax.set_ylim(0, ymax)
         ax.set_ylabel("abs(correlation)")
 
-        plt.tight_layout()
+        for x in range(1, len(self._condition_names)):
+            ax.axvline(x, ls=":", c="#222222", lw=1)
+
+        if legend:
+            ncol = len(self._confound_names) // 15 + 1
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0,
+                             box.width * (1 - .15 * ncol), box.height])
+            lgd = ax.legend(bars, self._confound_names, ncol=ncol, fontsize=10,
+                            loc='center left', bbox_to_anchor=(1, 0.5))
+        else:
+            lgd = []
+
         if fname is not None:
-            f.savefig(fname)
+            f.savefig(fname, bbox_extra_artists=[lgd], bbox_inches="tight")
 
     def plot_singular_values(self, fname=None):
         """Plot the singular values of the full design matrix."""
-        s = np.linalg.svd(self.design_matrix, compute_uv=False)
+        s = self._singular_values
         smat = s * np.eye(len(s))
 
         size = min(.3 * len(s), 8)
         f, ax = plt.subplots(1, 1, figsize=(size, size))
         ax.matshow(smat, cmap="bone", zorder=2)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        ax.axis("off")
 
         plt.tight_layout()
         if fname is not None:
@@ -456,7 +517,7 @@ class DesignMatrix(object):
         m, n = self.design_matrix.shape
         header = "/NumWaves\t%d\n/NumPoints\t%d\n/PPheights\t\t%s\n"
         heights = "\t".join(["%7.7g" % p for p in self._pp_heights])
-        header %= (m, n, heights)
+        header %= (n, m, heights)
 
         header += "\n/Matrix\n"
 
@@ -490,6 +551,17 @@ class DesignMatrix(object):
                 fid.write(header)
                 fid.write(sio.getvalue())
 
+    def to_pickle(self, fname):
+        """Save the object as a pickle to a file."""
+        with open(fname, "w") as fid:
+            cPickle.dump(self, fid)
+
+    @classmethod
+    def from_pickle(cls, fname):
+        """Load an object from a pickled file."""
+        with open(fname, "r") as fid:
+            return cPickle.load(fid)
+
     @property
     def main_submatrix(self):
         """Conditions (no derivatives) and regressors."""
@@ -520,15 +592,14 @@ class DesignMatrix(object):
         return self.design_matrix.shape
 
 
-
-def fsl_highpass_matrix(n_tp, cutoff, tr=2):
+def fsl_highpass_matrix(ntp, cutoff, tr=2):
     """Return an array to implement FSL's gaussian running line filter.
 
     To implement the filter, premultiply your data with this array.
 
     Parameters
     ----------
-    n_tp : int
+    ntp : int
         number of observations in data
     cutoff : float
         filter cutoff in seconds
@@ -537,26 +608,26 @@ def fsl_highpass_matrix(n_tp, cutoff, tr=2):
 
     Return
     ------
-    F : n_tp square array
+    F : ntp square array
         filter matrix
 
     """
     cutoff = cutoff / tr
     sig2n = np.square(cutoff / np.sqrt(2))
 
-    kernel = np.exp(-np.square(np.arange(n_tp)) / (2 * sig2n))
+    kernel = np.exp(-np.square(np.arange(ntp)) / (2 * sig2n))
     kernel = 1 / np.sqrt(2 * np.pi * sig2n) * kernel
 
     K = sp.linalg.toeplitz(kernel)
     K = np.dot(np.diag(1 / K.sum(axis=1)), K)
 
-    H = np.zeros((n_tp, n_tp))
-    X = np.column_stack((np.ones(n_tp), np.arange(n_tp)))
-    for k in xrange(n_tp):
+    H = np.zeros((ntp, ntp))
+    X = np.column_stack((np.ones(ntp), np.arange(ntp)))
+    for k in xrange(ntp):
         W = np.diag(K[k])
         hat = np.dot(np.dot(X, np.linalg.pinv(np.dot(W, X))), W)
         H[k] = hat[k]
-    F = np.eye(n_tp) - H
+    F = np.eye(ntp) - H
     return F
 
 
@@ -583,11 +654,11 @@ def fsl_highpass_filter(data, cutoff=128, tr=2, copy=True):
     if copy:
         data = data.copy()
     # Ensure data is in right shape
-    n_tp = len(data)
-    data = np.atleast_2d(data).reshape(n_tp, -1)
+    ntp = len(data)
+    data = np.atleast_2d(data).reshape(ntp, -1)
 
     # Filter each column of the data
-    F = fsl_highpass_matrix(n_tp, cutoff, tr)
+    F = fsl_highpass_matrix(ntp, cutoff, tr)
     data[:] = np.dot(F, data)
 
     return data.squeeze()
