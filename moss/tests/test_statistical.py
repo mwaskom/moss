@@ -267,7 +267,7 @@ def test_randomize_onesample_correction():
     t_un, p_un = stat.randomize_onesample(a, 1000, corrected=False)
     t_corr, p_corr = stat.randomize_onesample(a, 1000, corrected=True)
     assert_array_equal(t_un, t_corr)
-    npt.assert_array_less(p_un, p_corr)
+    npt.assert_array_less_equal(p_un, p_corr)
 
 
 def test_randomize_onesample_h0():
@@ -278,6 +278,19 @@ def test_randomize_onesample_h0():
 
     t, p = stat.randomize_onesample(a, 1000, h_0=4)
     assert p > 0.01
+
+
+def test_randomize_onesample_scalar():
+    """Single values returned from randomize_onesample should be scalars."""
+    a = np.random.randn(40)
+    t, p = stat.randomize_onesample(a)
+    assert np.isscalar(t)
+    assert np.isscalar(p)
+
+    a = np.random.randn(40, 3)
+    t, p = stat.randomize_onesample(a)
+    assert not np.isscalar(t)
+    assert not np.isscalar(p)
 
 
 def test_randomize_corrmat():
@@ -325,7 +338,7 @@ def test_randomize_corrmat_correction():
     p_mat = stat.randomize_corrmat(a, "upper", False)
     p_mat_corr = stat.randomize_corrmat(a, "upper", True)
     triu = np.triu_indices(3, 1)
-    npt.assert_array_less(p_mat[triu], p_mat_corr[triu])
+    npt.assert_array_less_equal(p_mat[triu], p_mat_corr[triu])
 
 
 def test_randimoize_corrmat_tails():
