@@ -18,3 +18,14 @@ def test_iqr():
     a = np.arange(5)
     iqr = misc.iqr(a)
     assert_equal(iqr, 2)
+
+
+def test_product_index():
+    """Test the product_index function."""
+    who = ["josh", "toby"]
+    what = range(3)
+    idx = misc.product_index([who, what], names=["who", "what"])
+    assert_equal(idx.names, ["who", "what"])
+    assert_equal(idx.values.tolist(),
+                 [("josh", 0L), ("josh", 1L), ("josh", 2L),
+                  ("toby", 0L), ("toby", 1L), ("toby", 2L)])

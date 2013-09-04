@@ -131,79 +131,6 @@ def add_constant(a):
     return np.column_stack((a, np.ones(len(a))))
 
 
-def fsl_highpass_matrix(n_tp, cutoff, tr=1):
-    """Return a matrix to implement FSL's gaussian running line filter.
-
-    This returns a matrix that you premultiply your data with to
-    implement the filter.
-
-    Parameters
-    ----------
-    n_tp : int
-        number of observations in data
-    cutoff : float
-        filter cutoff in seconds
-    tr : float
-        TR of data in seconds
-
-    Return
-    ------
-    F : n_tp square array
-        filter matrix
-
-    """
-    cutoff = cutoff / tr
-    sig2n = np.square(cutoff / np.sqrt(2))
-
-    kernel = np.exp(-np.square(np.arange(n_tp)) / (2 * sig2n))
-    kernel = 1 / np.sqrt(2 * np.pi * sig2n) * kernel
-
-    K = sp.linalg.toeplitz(kernel)
-    K = np.dot(np.diag(1 / K.sum(axis=1)), K)
-
-    H = np.zeros((n_tp, n_tp))
-    X = np.column_stack((np.ones(n_tp), np.arange(n_tp)))
-    for k in xrange(n_tp):
-        W = np.diag(K[k])
-        hat = np.dot(np.dot(X, np.linalg.pinv(np.dot(W, X))), W)
-        H[k] = hat[k]
-    F = np.eye(n_tp) - H
-    return F
-
-
-def fsl_highpass_filter(data, cutoff, tr=1, copy=True):
-    """Highpass filter data with gaussian running line filter.
-
-    Parameters
-    ----------
-    data : 1d or 2d array
-        data array where first dimension is observations
-    cutoff : float
-        filter cutoff in seconds
-    tr : float
-        data TR in seconds
-    copy : boolean
-        if False data is filtered in place
-
-    Returns
-    -------
-    data : 1d or 2d array
-        filtered version of the data
-
-    """
-    if copy:
-        data = data.copy()
-    # Ensure data is in right shape
-    n_tp = len(data)
-    data = np.atleast_2d(data).reshape(n_tp, -1)
-
-    # Filter each column of the data
-    F = fsl_highpass_matrix(n_tp, cutoff, tr)
-    data[:] = np.dot(F, data)
-
-    return data.squeeze()
-
-
 def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
                         random_seed=None, return_dist=False):
     """Nonparametric one-sample T test through randomization.
@@ -269,9 +196,10 @@ def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
             obs_p.append(1 - cdf(obs_i))
         obs_p = np.array(obs_p)
 
-    obs_t = obs_t.squeeze()
-    obs_p = obs_p.squeeze()
-    t_dist = t_dist.squeeze()
+    if a.shape[1] == 1:
+        obs_t = np.asscalar(obs_t)
+        obs_p = np.asscalar(obs_p)
+        t_dist = t_dist.squeeze()
 
     if return_dist:
         return obs_t, obs_p, t_dist

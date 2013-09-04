@@ -196,69 +196,6 @@ def test_add_constant():
     assert_array_equal(wanted, got)
 
 
-def test_highpass_matrix_shape():
-    """Test the filter matrix is the right shape."""
-    for n_tp in 10, 100:
-        F = stat.fsl_highpass_matrix(n_tp, 50)
-        assert_equal(F.shape, (n_tp, n_tp))
-
-
-def test_filter_matrix_diagonal():
-    """Test that the filter matrix has strong diagonal."""
-    F = stat.fsl_highpass_matrix(10, 3)
-    assert_array_equal(F.argmax(axis=1).squeeze(), np.arange(10))
-
-
-def test_filtered_data_shape():
-    """Test that filtering data returns same shape."""
-    data = np.random.randn(100)
-    data_filt = stat.fsl_highpass_filter(data, 30)
-    assert_equal(data.shape, data_filt.shape)
-
-    data = np.random.randn(100, 3)
-    data_filt = stat.fsl_highpass_filter(data, 30)
-    assert_equal(data.shape, data_filt.shape)
-
-
-def test_filter_psd():
-    """Test highpass filter with power spectral density."""
-    a = np.sin(np.linspace(0, 4 * np.pi, 100))
-    b = np.random.randn(100) / 2
-    y = a + b
-    y_filt = stat.fsl_highpass_filter(y, 10)
-    assert_equal(y.shape, y_filt.shape)
-
-    orig_psd, _ = psd(y, 2 ** 5)
-    filt_psd, _ = psd(y_filt, 2 ** 5)
-
-    nose.tools.assert_greater(orig_psd[:3].mean(), filt_psd[:3].mean())
-
-
-def test_filter_strength():
-    """Test that lower cutoff makes filter more aggresive."""
-    a = np.sin(np.linspace(0, 4 * np.pi, 100))
-    b = np.random.randn(100) / 2
-    y = a + b
-
-    cutoffs = np.linspace(20, 80, 5)
-    densities = np.zeros_like(cutoffs)
-    for i, cutoff in enumerate(cutoffs):
-        filt = stat.fsl_highpass_filter(y, cutoff)
-        density, _ = psd(filt, 2 ** 5)
-        densities[i] = density.mean()
-
-    assert_array_equal(densities, np.sort(densities))
-
-
-def test_filter_copy():
-    """Test that copy argument to filter function works."""
-    a = np.random.randn(100, 10)
-    a_copy = stat.fsl_highpass_filter(a, 50, copy=True)
-    assert(not (a == a_copy).all())
-    a_nocopy = stat.fsl_highpass_filter(a, 100, copy=False)
-    assert_array_equal(a, a_nocopy)
-
-
 def test_randomize_onesample():
     """Test performance of randomize_onesample."""
     a_zero = np.random.normal(0, 1, 50)
@@ -330,7 +267,7 @@ def test_randomize_onesample_correction():
     t_un, p_un = stat.randomize_onesample(a, 1000, corrected=False)
     t_corr, p_corr = stat.randomize_onesample(a, 1000, corrected=True)
     assert_array_equal(t_un, t_corr)
-    npt.assert_array_less(p_un, p_corr)
+    npt.assert_array_less_equal(p_un, p_corr)
 
 
 def test_randomize_onesample_h0():
@@ -341,6 +278,19 @@ def test_randomize_onesample_h0():
 
     t, p = stat.randomize_onesample(a, 1000, h_0=4)
     assert p > 0.01
+
+
+def test_randomize_onesample_scalar():
+    """Single values returned from randomize_onesample should be scalars."""
+    a = np.random.randn(40)
+    t, p = stat.randomize_onesample(a)
+    assert np.isscalar(t)
+    assert np.isscalar(p)
+
+    a = np.random.randn(40, 3)
+    t, p = stat.randomize_onesample(a)
+    assert not np.isscalar(t)
+    assert not np.isscalar(p)
 
 
 def test_randomize_corrmat():
@@ -388,7 +338,7 @@ def test_randomize_corrmat_correction():
     p_mat = stat.randomize_corrmat(a, "upper", False)
     p_mat_corr = stat.randomize_corrmat(a, "upper", True)
     triu = np.triu_indices(3, 1)
-    npt.assert_array_less(p_mat[triu], p_mat_corr[triu])
+    npt.assert_array_less_equal(p_mat[triu], p_mat_corr[triu])
 
 
 def test_randimoize_corrmat_tails():

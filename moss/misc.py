@@ -1,4 +1,5 @@
 """Miscellaneous utility functions."""
+import itertools
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -43,6 +44,13 @@ def df_oneway(df, by, key, nice=True, **kwargs):
                                                  p, sig_stars(p))
     else:
         return pd.Series([f, p], ["F", "p"])
+
+
+def product_index(values, names=None):
+    """Make a MultiIndex from the combinatorial product of the values."""
+    iterable = itertools.product(*values)
+    idx = pd.MultiIndex.from_tuples(list(iterable), names=names)
+    return idx
 
 
 def make_master_schedule(evs):
