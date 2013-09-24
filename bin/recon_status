@@ -30,11 +30,8 @@ def main(arglist):
         # Otherwise look at everyone with a log
         subj_logs = glob(op.join(subjects_dir, "*",
                          "scripts/recon-all-status.log"))
+        subj_logs = [s for s in subj_logs if "fsaverage" not in s]
         subjects = [p.split("/")[-3] for p in subj_logs]
-        try:
-            subjects.remove("fsaverage")
-        except ValueError:
-            pass
         sorter = np.argsort(subjects)
         subjects = np.array(subjects)[sorter]
         subj_logs = np.array(subj_logs)[sorter]
