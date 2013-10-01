@@ -196,9 +196,10 @@ def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
             obs_p.append(1 - cdf(obs_i))
         obs_p = np.array(obs_p)
 
-    obs_t = obs_t.squeeze()
-    obs_p = obs_p.squeeze()
-    t_dist = t_dist.squeeze()
+    if a.shape[1] == 1:
+        obs_t = np.asscalar(obs_t)
+        obs_p = np.asscalar(obs_p)
+        t_dist = t_dist.squeeze()
 
     if return_dist:
         return obs_t, obs_p, t_dist
