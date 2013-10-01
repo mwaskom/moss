@@ -1,0 +1,39 @@
+#! /bin/bash
+
+# Usage exit
+if [ $# -eq 0 ] || [ "$1" = '-h' ]
+then
+    echo "USAGE: warp_qc <subject_id>"
+    echo 
+    echo "This will open up Freeview with several images from"
+    echo "the process registering the Freesurfer brain to the"
+    echo "MNI152 template."
+    echo
+    echo "Written by Michael Waskom -- mwaskom@stanford.edu"
+    exit 1
+fi
+
+# Make sure the subject exists
+if  [ ! -e $SUBJECTS_DIR/$1 ]
+then
+    echo "Subject $1 does not exist in $SUBJECTS_DIR"
+    exit 1
+fi
+
+# Tell the annoying terminal output to get lost
+exec > /dev/null 2>&1
+
+# Set convenient subject path
+SD=$SUBJECTS_DIR/$1/normalization
+
+FSLBRAIN=$FSLDIR/data/standard/avg152_brain.nii.gz
+
+# Build the command line
+# Volume stuff first
+ARGS="-v $FSLBRAIN $SD/brain_flirt.nii.gz $SD/brain_warp.niigz"
+
+# Finally set the viewport
+ARGS="$ARGS -viewport coronal"
+
+# Now fire 'er up
+freeview $ARGS
