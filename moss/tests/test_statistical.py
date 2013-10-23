@@ -50,7 +50,7 @@ def test_bootstrap_range():
     """Test that boostrapping a random array stays within the right range."""
     min, max = a_norm.min(), a_norm.max()
     out = stat.bootstrap(a_norm)
-    nose.tools.assert_less_equal(min, out.min())
+    nose.tools.assert_less(min, out.min())
     nose.tools.assert_greater_equal(max, out.max())
 
 
@@ -267,7 +267,7 @@ def test_randomize_onesample_correction():
     t_un, p_un = stat.randomize_onesample(a, 1000, corrected=False)
     t_corr, p_corr = stat.randomize_onesample(a, 1000, corrected=True)
     assert_array_equal(t_un, t_corr)
-    npt.assert_array_less_equal(p_un, p_corr)
+    npt.assert_array_less(p_un, p_corr)
 
 
 def test_randomize_onesample_h0():
@@ -338,7 +338,7 @@ def test_randomize_corrmat_correction():
     p_mat = stat.randomize_corrmat(a, "upper", False)
     p_mat_corr = stat.randomize_corrmat(a, "upper", True)
     triu = np.triu_indices(3, 1)
-    npt.assert_array_less_equal(p_mat[triu], p_mat_corr[triu])
+    npt.assert_array_less(p_mat[triu], p_mat_corr[triu])
 
 
 def test_randimoize_corrmat_tails():
