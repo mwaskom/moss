@@ -68,11 +68,11 @@ def test_hrf_convolution():
     data1 = np.zeros(512)
     data1[0] = 1
     conv1 = hrf.convolve(data1)
-    npt.assert_almost_equal(conv1.sum(), 1)
+    npt.assert_almost_equal(float(conv1.sum()), 1)
 
     data2 = np.ones(512)
     conv2 = hrf.convolve(data2)
-    npt.assert_almost_equal(conv2.ix[-200:].mean(), 1)
+    npt.assert_almost_equal(float(conv2.ix[32:].mean()), 1)
 
 
 def test_hrf_frametimes():
