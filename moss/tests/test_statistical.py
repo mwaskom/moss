@@ -1,7 +1,6 @@
 import numpy as np
 import scipy as sp
 from scipy import stats as spstats
-from matplotlib.mlab import psd
 import pandas as pd
 from sklearn.naive_bayes import GaussianNB
 
@@ -12,8 +11,9 @@ from nose.tools import assert_equal, assert_almost_equal, raises
 
 from .. import statistical as stat
 
+rs = np.random.RandomState(sum(map(ord, "moss_stats")))
 
-a_norm = np.random.randn(100)
+a_norm = rs.randn(100)
 
 a_range = np.arange(101)
 
@@ -67,7 +67,7 @@ def test_bootstrap_multiarg():
 
 def test_bootstrap_axis():
     """Test axis kwarg to bootstrap function."""
-    x = np.random.randn(10, 20)
+    x = rs.randn(10, 20)
     n_boot = 100
     out_default = stat.bootstrap(x, n_boot=n_boot)
     assert_equal(out_default.shape, (n_boot,))
@@ -77,7 +77,7 @@ def test_bootstrap_axis():
 
 def test_smooth_bootstrap():
     """Test smooth bootstrap."""
-    x = np.random.randn(15)
+    x = rs.randn(15)
     n_boot = 100
     out_normal = stat.bootstrap(x, n_boot=n_boot, func=np.median)
     out_smooth = stat.bootstrap(x, n_boot=n_boot,
@@ -90,10 +90,10 @@ def test_bootstrap_ols():
     """Test bootstrap of OLS model fit."""
     ols_fit = lambda X, y: np.dot(np.dot(np.linalg.inv(
                                   np.dot(X.T, X)), X.T), y)
-    X = np.column_stack((np.random.randn(50, 4), np.ones(50)))
+    X = np.column_stack((rs.randn(50, 4), np.ones(50)))
     w = [2, 4, 0, 3, 5]
-    y_noisy = np.dot(X, w) + np.random.randn(50) * 20
-    y_lownoise = np.dot(X, w) + np.random.randn(50)
+    y_noisy = np.dot(X, w) + rs.randn(50) * 20
+    y_lownoise = np.dot(X, w) + rs.randn(50)
 
     n_boot = 500
     w_boot_noisy = stat.bootstrap(X, y_noisy,
@@ -132,7 +132,7 @@ def test_percentiles():
     multi = stat.percentiles(a_range, multi_val)
     assert_array_equal(multi, multi_val)
 
-    array_val = np.random.randint(0, 101, 5).astype(float)
+    array_val = rs.randint(0, 101, 5).astype(float)
     array = stat.percentiles(a_range, array_val)
     assert_array_almost_equal(array, array_val)
 
@@ -146,7 +146,7 @@ def test_percentiles_acc():
     assert_equal(perc, val)
 
     # Now test against scoreatpercentile
-    percentiles = np.random.randint(0, 101, 10)
+    percentiles = rs.randint(0, 101, 10)
     out = stat.percentiles(a_norm, percentiles)
     for score, pct in zip(out, percentiles):
         assert_equal(score, sp.stats.scoreatpercentile(a_norm, pct))
@@ -154,7 +154,7 @@ def test_percentiles_acc():
 
 def test_percentiles_axis():
     """Test use of axis argument to percentils."""
-    data = np.random.randn(10, 10)
+    data = rs.randn(10, 10)
 
     # Test against the median with 50th percentile
     median1 = np.median(data)
@@ -174,7 +174,7 @@ def test_percentiles_axis():
 
 def test_ci():
     """Test ci against percentiles."""
-    a = np.random.randn(100)
+    a = rs.randn(100)
     p = stat.percentiles(a, [2.5, 97.5])
     c = stat.ci(a, 95)
     assert_array_equal(p, c)
@@ -182,15 +182,15 @@ def test_ci():
 
 def test_vector_reject():
     """Test vector rejection function."""
-    x = np.random.randn(30)
-    y = x + np.random.randn(30) / 2
+    x = rs.randn(30)
+    y = x + rs.randn(30) / 2
     x_ = stat.vector_reject(x, y)
     assert_almost_equal(np.dot(x_, y), 0)
 
 
 def test_add_constant():
     """Test the add_constant function."""
-    a = np.random.randn(10, 5)
+    a = rs.randn(10, 5)
     wanted = np.column_stack((a, np.ones(10)))
     got = stat.add_constant(a)
     assert_array_equal(wanted, got)
@@ -198,11 +198,11 @@ def test_add_constant():
 
 def test_randomize_onesample():
     """Test performance of randomize_onesample."""
-    a_zero = np.random.normal(0, 1, 50)
+    a_zero = rs.normal(0, 1, 50)
     t_zero, p_zero = stat.randomize_onesample(a_zero)
     nose.tools.assert_greater(p_zero, 0.05)
 
-    a_five = np.random.normal(5, 1, 50)
+    a_five = rs.normal(5, 1, 50)
     t_five, p_five = stat.randomize_onesample(a_five)
     nose.tools.assert_greater(0.05, p_five)
 
@@ -213,8 +213,8 @@ def test_randomize_onesample():
 def test_randomize_onesample_range():
     """Make sure that output is bounded between 0 and 1."""
     for i in xrange(100):
-        a = np.random.normal(np.random.randint(-10, 10),
-                             np.random.uniform(.5, 3), 100)
+        a = rs.normal(rs.randint(-10, 10),
+                      rs.uniform(.5, 3), 100)
         t, p = stat.randomize_onesample(a, 100)
         nose.tools.assert_greater_equal(1, p)
         nose.tools.assert_greater_equal(p, 0)
@@ -222,24 +222,24 @@ def test_randomize_onesample_range():
 
 def test_randomize_onesample_getdist():
     """Test that we can get the null distribution if we ask for it."""
-    a = np.random.normal(0, 1, 20)
+    a = rs.normal(0, 1, 20)
     out = stat.randomize_onesample(a, return_dist=True)
     assert_equal(len(out), 3)
 
 
 def test_randomize_onesample_iters():
     """Make sure we get the right number of samples."""
-    a = np.random.normal(0, 1, 20)
+    a = rs.normal(0, 1, 20)
     t, p, samples = stat.randomize_onesample(a, return_dist=True)
     assert_equal(len(samples), 10000)
-    for n in np.random.randint(5, 1e4, 5):
+    for n in rs.randint(5, 1e4, 5):
         t, p, samples = stat.randomize_onesample(a, n, return_dist=True)
         assert_equal(len(samples), n)
 
 
 def test_randomize_onesample_seed():
     """Test that we can seed the random state and get the same distribution."""
-    a = np.random.normal(0, 1, 20)
+    a = rs.normal(0, 1, 20)
     seed = 42
     t_a, p_a, samples_a = stat.randomize_onesample(a, 1000,
                                                    random_seed=seed,
@@ -252,7 +252,7 @@ def test_randomize_onesample_seed():
 
 def test_randomize_onesample_multitest():
     """Test that randomizing over multiple tests works."""
-    a = np.random.normal(0, 1, (20, 5))
+    a = rs.normal(0, 1, (20, 5))
     t, p = stat.randomize_onesample(a, 1000)
     assert_equal(len(t), 5)
     assert_equal(len(p), 5)
@@ -263,7 +263,7 @@ def test_randomize_onesample_multitest():
 
 def test_randomize_onesample_correction():
     """Test that maximum based correction (seems to) work."""
-    a = np.random.normal(0, 1, (100, 10))
+    a = rs.normal(0, 1, (100, 10))
     t_un, p_un = stat.randomize_onesample(a, 1000, corrected=False)
     t_corr, p_corr = stat.randomize_onesample(a, 1000, corrected=True)
     assert_array_equal(t_un, t_corr)
@@ -272,7 +272,7 @@ def test_randomize_onesample_correction():
 
 def test_randomize_onesample_h0():
     """Test that we can supply a null hypothesis for the group mean."""
-    a = np.random.normal(4, 1, 100)
+    a = rs.normal(4, 1, 100)
     t, p = stat.randomize_onesample(a, 1000, h_0=0)
     assert p < 0.01
 
@@ -282,12 +282,12 @@ def test_randomize_onesample_h0():
 
 def test_randomize_onesample_scalar():
     """Single values returned from randomize_onesample should be scalars."""
-    a = np.random.randn(40)
+    a = rs.randn(40)
     t, p = stat.randomize_onesample(a)
     assert np.isscalar(t)
     assert np.isscalar(p)
 
-    a = np.random.randn(40, 3)
+    a = rs.randn(40, 3)
     t, p = stat.randomize_onesample(a)
     assert not np.isscalar(t)
     assert not np.isscalar(p)
@@ -295,9 +295,9 @@ def test_randomize_onesample_scalar():
 
 def test_randomize_corrmat():
     """Test the correctness of the correlation matrix p values."""
-    a = np.random.randn(30)
-    b = a + np.random.rand(30) * 3
-    c = np.random.randn(30)
+    a = rs.randn(30)
+    b = a + rs.rand(30) * 3
+    c = rs.randn(30)
     d = [a, b, c]
 
     p_mat, dist = stat.randomize_corrmat(d, tail="upper", corrected=False,
@@ -308,14 +308,14 @@ def test_randomize_corrmat():
     pctile = 100 - spstats.percentileofscore(dist[2, 1], corrmat[2, 1])
     nose.tools.assert_almost_equal(p_mat[2, 1] * 100, pctile)
 
-    d[1] = -a + np.random.rand(30)
+    d[1] = -a + rs.rand(30)
     p_mat = stat.randomize_corrmat(d)
     nose.tools.assert_greater(0.05, p_mat[1, 0])
 
 
 def test_randomize_corrmat_dist():
     """Test that the distribution looks right."""
-    a = np.random.randn(3, 20)
+    a = rs.randn(3, 20)
     for n_i in [5, 10]:
         p_mat, dist = stat.randomize_corrmat(a, n_iter=n_i, return_dist=True)
         assert_equal(n_i, dist.shape[-1])
@@ -334,7 +334,7 @@ def test_randomize_corrmat_dist():
 
 def test_randomize_corrmat_correction():
     """Test that FWE correction works."""
-    a = np.random.randn(3, 20)
+    a = rs.randn(3, 20)
     p_mat = stat.randomize_corrmat(a, "upper", False)
     p_mat_corr = stat.randomize_corrmat(a, "upper", True)
     triu = np.triu_indices(3, 1)
@@ -343,9 +343,9 @@ def test_randomize_corrmat_correction():
 
 def test_randimoize_corrmat_tails():
     """Test that the tail argument works."""
-    a = np.random.randn(30)
-    b = a + np.random.rand(30) * 8
-    c = np.random.randn(30)
+    a = rs.randn(30)
+    b = a + rs.rand(30) * 8
+    c = rs.randn(30)
     d = [a, b, c]
 
     p_mat_b = stat.randomize_corrmat(d, "both", False, random_seed=0)
@@ -357,7 +357,7 @@ def test_randimoize_corrmat_tails():
 
 def test_randomise_corrmat_seed():
     """Test that we can seed the corrmat randomization."""
-    a = np.random.randn(3, 20)
+    a = rs.randn(3, 20)
     _, dist1 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
     _, dist2 = stat.randomize_corrmat(a, random_seed=0, return_dist=True)
     assert_array_equal(dist1, dist2)
@@ -366,7 +366,7 @@ def test_randomise_corrmat_seed():
 @raises(ValueError)
 def test_randomize_corrmat_tail_error():
     """Test that we are strict about tail paramete."""
-    a = np.random.randn(3, 30)
+    a = rs.randn(3, 30)
     stat.randomize_corrmat(a, "hello")
 
 
@@ -418,7 +418,7 @@ def test_randomize_classifier_number():
     """Test size of randomize_classifier vectors."""
     data = datasets[0]
     model = GaussianNB()
-    for n_iter in np.random.randint(10, 250, 5):
+    for n_iter in rs.randint(10, 250, 5):
         p_vals, perm_dist = stat.randomize_classifier(data, model, n_iter,
                                                       return_dist=True)
         nose.tools.assert_equal(len(perm_dist), n_iter)
@@ -437,7 +437,7 @@ def test_transition_probabilities():
     actual = stat.transition_probabilities(sched)
     npt.assert_array_equal(expected, actual)
 
-    a = np.random.rand(100) < .5
+    a = rs.rand(100) < .5
     a = np.where(a, "foo", "bar")
     out = stat.transition_probabilities(a)
     npt.assert_equal(out.columns.tolist(), ["bar", "foo"])
@@ -460,7 +460,7 @@ def test_gamma_hrf_predict():
     hrf = stat.GammaHRF()
     x = np.arange(24)
     y = spstats.gamma(6, 0, .9).pdf(x)
-    y += np.random.normal(0, .01, 24)
+    y += rs.normal(0, .01, 24)
     y_hat = hrf.fit(x, y).predict(x)
     npt.assert_allclose(y, y_hat, atol=.1)
 
@@ -481,8 +481,8 @@ def test_gamma_r2():
     hrf = stat.GammaHRF()
     x = np.arange(24)
     y = spstats.gamma(6, 0, .9).pdf(x)
-    y_low = y + np.random.normal(0, .001, 24)
-    y_high = y + np.random.normal(0, .05, 24)
+    y_low = y + rs.normal(0, .001, 24)
+    y_high = y + rs.normal(0, .05, 24)
     r2_low = hrf.fit(x, y).r2_score(x, y_low)
     r2_high = hrf.fit(x, y).r2_score(x, y_high)
     nose.tools.assert_less(r2_high, r2_low)
@@ -494,7 +494,7 @@ def test_gamma_hrf_bounds():
     hrf = stat.GammaHRF(shape=5.5, scale=1.1, bounds=bounds)
     x = np.arange(24)
     y = spstats.gamma(6, 0, .9).pdf(x)
-    y += np.random.normal(0, .01, 24)
+    y += rs.normal(0, .01, 24)
     hrf.fit(x, y)
     nose.tools.assert_less(hrf.shape_, 5.75)
     nose.tools.assert_less(1, hrf.scale_)

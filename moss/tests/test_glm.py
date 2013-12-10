@@ -8,6 +8,9 @@ import numpy.testing as npt
 
 from .. import glm
 
+# Reproducible randomness
+rs = np.random.RandomState(sum(map(ord, "glm")))
+
 
 def test_hrf_sum():
     """Returned HRF values should sum to 1."""
@@ -77,7 +80,7 @@ def test_hrf_convolution():
 
 def test_hrf_frametimes():
     """Test the frametimes that come out of the convolution."""
-    data = (np.random.rand(512) < .2).astype(int)
+    data = (rs.rand(512) < .2).astype(int)
     ft = np.arange(512)
 
     hrf1 = glm.GammaDifferenceHRF()
@@ -95,7 +98,7 @@ def test_hrf_frametimes():
 
 def test_hrf_names():
     """Test the names that come out of the convolution."""
-    data = (np.random.rand(500) < .2).astype(int)
+    data = (rs.rand(500) < .2).astype(int)
     series_data = pd.Series(data, name="donna")
 
     hrf1 = glm.GammaDifferenceHRF()
@@ -116,7 +119,7 @@ def test_hrf_names():
 
 def test_identity_hrf():
     """Test the identity HRF model."""
-    data = np.random.randn(20)
+    data = rs.randn(20)
     frametimes = np.arange(20)
     name = "donna"
 
@@ -132,9 +135,9 @@ def test_design_matrix_size():
     hrf = glm.GammaDifferenceHRF()
     design = pd.DataFrame(dict(condition=["one", "two"],
                                onset=[5, 20]))
-    regressors = np.random.randn(20, 2)
-    confounds = np.random.randn(20, 3)
-    artifacts = np.random.rand(20) < .1
+    regressors = rs.randn(20, 2)
+    confounds = rs.randn(20, 3)
+    artifacts = rs.rand(20) < .1
 
     X1 = glm.DesignMatrix(design, hrf, 20)
     nt.assert_equal(X1.design_matrix.shape, (20, 2))
@@ -214,8 +217,8 @@ def test_design_matrix_contrast_vector():
     nt.assert_equal(C2.tolist(), [-1, 1])
 
     X2 = glm.DesignMatrix(design, hrf, 15,
-                          regressors=np.random.randn(15, 1),
-                          confounds=np.random.randn(15, 1))
+                          regressors=rs.randn(15, 1),
+                          confounds=rs.randn(15, 1))
     C3 = X2.contrast_vector(["regressor_0"], [1])
     nt.assert_equal(C3.tolist(), [0, 0, 1, 0])
 
@@ -256,9 +259,9 @@ def test_design_matrix_demeaned():
     artifacts = np.zeros(15, int)
     artifacts[10] = 1
     X = glm.DesignMatrix(design, hrf, 15,
-                         regressors=np.random.randn(15, 3) + 2,
-                         confounds=(np.random.randn(15, 3) +
-                                    np.random.rand(3)),
+                         regressors=rs.randn(15, 3) + 2,
+                         confounds=(rs.randn(15, 3) +
+                                    rs.rand(3)),
                          artifacts=artifacts)
     npt.assert_array_almost_equal(X.design_matrix.mean().values,
                                   np.zeros(11))
@@ -291,8 +294,8 @@ def test_design_matrix_confound_pca():
     """Test the PCA transformation of the confound matrix."""
     hrf = glm.GammaDifferenceHRF(temporal_deriv=True)
     design = pd.DataFrame(dict(condition=["one", "two"], onset=[5, 10]))
-    confounds = np.random.randn(20, 5)
-    confounds[:, 0] = confounds[:, 1] + np.random.randn(20)
+    confounds = rs.randn(20, 5)
+    confounds[:, 0] = confounds[:, 1] + rs.randn(20)
     pca = PCA("mle").fit(confounds)
     X = glm.DesignMatrix(design, hrf, 20,
                          confounds=confounds,
@@ -316,11 +319,11 @@ def test_filter_matrix_diagonal():
 
 def test_filtered_data_shape():
     """Test that filtering data returns same shape."""
-    data = np.random.randn(100)
+    data = rs.randn(100)
     data_filt = glm.fsl_highpass_filter(data, 30)
     nt.assert_equal(data.shape, data_filt.shape)
 
-    data = np.random.randn(100, 3)
+    data = rs.randn(100, 3)
     data_filt = glm.fsl_highpass_filter(data, 30)
     nt.assert_equal(data.shape, data_filt.shape)
 
@@ -328,7 +331,7 @@ def test_filtered_data_shape():
 def test_filter_psd():
     """Test highpass filter with power spectral density."""
     a = np.sin(np.linspace(0, 4 * np.pi, 32))
-    b = np.random.randn(32) / 2
+    b = rs.randn(32) / 2
     y = a + b
     y_filt = glm.fsl_highpass_filter(y, 10)
     nt.assert_equal(y.shape, y_filt.shape)
@@ -342,7 +345,7 @@ def test_filter_psd():
 def test_filter_strength():
     """Test that lower cutoff makes filter more aggresive."""
     a = np.sin(np.linspace(0, 4 * np.pi, 32))
-    b = np.random.randn(32) / 2
+    b = rs.randn(32) / 2
     y = a + b
 
     cutoffs = np.linspace(20, 80, 5)
@@ -357,7 +360,7 @@ def test_filter_strength():
 
 def test_filter_copy():
     """Test that copy argument to filter function works."""
-    a = np.random.randn(100, 10)
+    a = rs.randn(100, 10)
     a_copy = glm.fsl_highpass_filter(a, 50, copy=True)
     assert(not (a == a_copy).all())
     a_nocopy = glm.fsl_highpass_filter(a, 100, copy=False)
