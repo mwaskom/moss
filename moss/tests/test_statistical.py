@@ -328,9 +328,6 @@ def test_randomize_corrmat_dist():
     off_diag_mean = dist[0, 1].mean()
     nose.tools.assert_greater(0.05, off_diag_mean)
 
-    skew, skewp = spstats.skewtest(dist[0, 1])
-    nose.tools.assert_greater(skewp, 0.01)
-
 
 def test_randomize_corrmat_correction():
     """Test that FWE correction works."""
@@ -390,7 +387,7 @@ def test_randomize_classifier():
 
     # Test that the distribution looks normal (this is probabilistic)
     val, p = spstats.normaltest(perm_vals)
-    nose.tools.assert_greater(p, 0.05)
+    nose.tools.assert_greater(p, 0.001)
 
 
 def test_randomize_classifier_dimension():
@@ -497,4 +494,4 @@ def test_gamma_hrf_bounds():
     y += rs.normal(0, .01, 24)
     hrf.fit(x, y)
     nose.tools.assert_less(hrf.shape_, 5.75)
-    nose.tools.assert_less(1, hrf.scale_)
+    nose.tools.assert_less_equal(1, hrf.scale_)

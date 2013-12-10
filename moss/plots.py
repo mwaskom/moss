@@ -3,6 +3,7 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
 def plot_mask_distribution(mask_img, hist=False, ax=None):
     """Plot the distribution of voxel coordinates in a mask image or file.
 

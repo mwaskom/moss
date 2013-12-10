@@ -71,11 +71,11 @@ def test_hrf_convolution():
     data1 = np.zeros(512)
     data1[0] = 1
     conv1 = hrf.convolve(data1)
-    npt.assert_almost_equal(conv1.sum(), 1)
+    npt.assert_almost_equal(float(conv1.sum()), 1)
 
     data2 = np.ones(512)
     conv2 = hrf.convolve(data2)
-    npt.assert_almost_equal(conv2.ix[-200:].mean(), 1)
+    npt.assert_almost_equal(float(conv2.ix[32:].mean()), 1)
 
 
 def test_hrf_frametimes():
@@ -296,12 +296,16 @@ def test_design_matrix_confound_pca():
     design = pd.DataFrame(dict(condition=["one", "two"], onset=[5, 10]))
     confounds = rs.randn(20, 5)
     confounds[:, 0] = confounds[:, 1] + rs.randn(20)
-    pca = PCA("mle").fit(confounds)
+    pca = PCA(.99).fit(confounds)
     X = glm.DesignMatrix(design, hrf, 20,
                          confounds=confounds,
                          confound_pca=True)
     n_confounds = X.confound_submatrix.shape[1]
     nt.assert_equal(n_confounds, pca.n_components)
+
+    pca_all = PCA().fit(confounds)
+    good_dims = np.sum(pca_all.explained_variance_ratio_ > .01)
+    nt.assert_equal(n_confounds, good_dims)
 
 
 def test_highpass_matrix_shape():
