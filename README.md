@@ -50,6 +50,11 @@ directory.
 Note that some of the statistical tests depend on randomly generated data and
 fail from time to time because of this.
 
+License
+-------
+
+Moss is released under a BSD (3-clause) license.
+
 
 Development
 -----------
