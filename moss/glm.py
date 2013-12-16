@@ -6,7 +6,6 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 from scipy.stats import gamma
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
 import seaborn as sns
@@ -246,6 +245,7 @@ class DesignMatrix(object):
         confounds = self._validate_component(confounds, "confound")
 
         if confound_pca:
+            from sklearn.decomposition import PCA
             pca = PCA(0.99).fit_transform(confounds)
             n_conf = pca.shape[1]
             new_columns = pd.Series(["confound_%d"] * n_conf) % range(n_conf)
