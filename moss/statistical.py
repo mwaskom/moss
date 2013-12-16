@@ -5,9 +5,6 @@ import scipy as sp
 from scipy import stats
 import pandas as pd
 import statsmodels.api as sm
-from sklearn.metrics import r2_score
-from sklearn.cross_validation import (cross_val_score,
-                                      LeaveOneOut, LeaveOneLabelOut)
 
 
 def bootstrap(*args, **kwargs):
@@ -337,6 +334,9 @@ def randomize_classifier(data, model, n_iter=1000, cv_method="run",
         array of null model scores, only if asked for it
 
     """
+    # Import sklearn here to relieve moss dependency on it
+    from sklearn.cross_validation import (cross_val_score,
+                                          LeaveOneOut, LeaveOneLabelOut)
     if dv is None:
         import __builtin__
         _map = __builtin__.map
@@ -543,7 +543,9 @@ class GammaHRF(object):
     def r2_score(self, x, y):
         """Predict new values at x and measure fit with y."""
         hrf = self.predict(x)
-        return r2_score(hrf, y)
+        ssres = np.sum(np.square(hrf - y))
+        sstot = np.sum(np.square(y - y.mean()))
+        return 1 - (ssres / sstot)
 
     @property
     def peak_time_(self):
