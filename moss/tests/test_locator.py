@@ -1,11 +1,16 @@
+import os
 import numpy as np
 import pandas as pd
+from nose.plugins.skip import SkipTest
 from numpy.testing import assert_equal
 
 from .. import locator
 
 
 def test_locate_peaks():
+    """Test that known peaks are located properly."""
+    if "FSLDIR" not in os.environ:
+        raise SkipTest
 
     challenge = [
         ([(60, 60, 50)], ("L Cereb WM", 95)),
@@ -22,7 +27,7 @@ def test_locate_peaks():
 
 
 def test_shorten_name():
-
+    """Test that verbose Harvard Oxford ROI names are shorted."""
     names = [("Parahippocampal Gyrus, anterior division",
               "Parahip G, ant",
               "ctx"),
@@ -34,6 +39,9 @@ def test_shorten_name():
 
 
 def test_vox_to_mni():
+    """Test the voxel index to MNI coordinate transformation."""
+    if "FSLDIR" not in os.environ:
+        raise SkipTest
 
     coords = [((29, 68, 57), (32, 10, 42)),
               ((70, 38, 42), (-50, -50, 12)),
