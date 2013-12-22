@@ -3,6 +3,7 @@ import scipy as sp
 from scipy import stats as spstats
 import pandas as pd
 from sklearn.naive_bayes import GaussianNB
+from six.moves import range
 
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 import numpy.testing as npt
@@ -212,7 +213,7 @@ def test_randomize_onesample():
 
 def test_randomize_onesample_range():
     """Make sure that output is bounded between 0 and 1."""
-    for i in xrange(100):
+    for i in range(100):
         a = rs.normal(rs.randint(-10, 10),
                       rs.uniform(.5, 3), 100)
         t, p = stat.randomize_onesample(a, 100)

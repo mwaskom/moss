@@ -1,20 +1,11 @@
 from __future__ import division
 
-try:
-    from StringIO import StringIO
-except ImportError:  # Py3K
-    from io import StringIO
-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
 import numpy as np
 import scipy as sp
 import pandas as pd
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
+from six.moves import range, StringIO, cPickle
 
 
 class HRFModel(object):
@@ -561,13 +552,13 @@ class DesignMatrix(object):
     def to_pickle(self, fname):
         """Save the object as a pickle to a file."""
         with open(fname, "w") as fid:
-            pickle.dump(self, fid)
+            cPickle.dump(self, fid)
 
     @classmethod
     def from_pickle(cls, fname):
         """Load an object from a pickled file."""
         with open(fname, "r") as fid:
-            return pickle.load(fid)
+            return cPickle.load(fid)
 
     @property
     def main_submatrix(self):
@@ -630,7 +621,7 @@ def fsl_highpass_matrix(ntp, cutoff, tr=2):
 
     H = np.zeros((ntp, ntp))
     X = np.column_stack((np.ones(ntp), np.arange(ntp)))
-    for k in xrange(ntp):
+    for k in range(ntp):
         W = np.diag(K[k])
         hat = np.dot(np.dot(X, np.linalg.pinv(np.dot(W, X))), W)
         H[k] = hat[k]

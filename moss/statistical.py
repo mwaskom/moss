@@ -5,6 +5,7 @@ import scipy as sp
 from scipy import stats
 import pandas as pd
 import statsmodels.api as sm
+from six.moves import range
 
 
 def bootstrap(*args, **kwargs):
@@ -50,7 +51,7 @@ def bootstrap(*args, **kwargs):
     boot_dist = []
     if smooth:
         kde = [stats.gaussian_kde(np.transpose(a)) for a in args]
-    for i in xrange(int(n_boot)):
+    for i in range(int(n_boot)):
         if smooth:
             sample = [a.resample(n).T for a in kde]
         else:
@@ -242,7 +243,7 @@ def randomize_corrmat(a, tail="both", corrected=True, n_iter=1000,
 
     # Do the permutations to establish a null distribution
     null_dist = np.empty((n_vars, n_vars, n_iter))
-    for i_i in xrange(n_iter):
+    for i_i in range(n_iter):
         perm_i = np.concatenate([rs.permutation(n_obs) + (v * n_obs)
                                  for v in range(n_vars)])
         a_i = flat_a[perm_i].reshape(n_vars, n_obs)
@@ -338,8 +339,8 @@ def randomize_classifier(data, model, n_iter=1000, cv_method="run",
     from sklearn.cross_validation import (cross_val_score,
                                           LeaveOneOut, LeaveOneLabelOut)
     if dv is None:
-        import __builtin__
-        _map = __builtin__.map
+        from six.moves import builtins
+        _map = builtins.map
     else:
         _map = dv.map_sync
 
@@ -382,7 +383,7 @@ def randomize_classifier(data, model, n_iter=1000, cv_method="run",
     null_dist = []
     for X_i in X:
         X_p = [X_i for i in range(n_iter)]
-        tr_scores = _map(_perm_decode, model_p, X_p, y_p, cv_p, perms)
+        tr_scores = list(_map(_perm_decode, model_p, X_p, y_p, cv_p, perms))
         null_dist.append(tr_scores)
     null_dist = np.array(null_dist).T
 
@@ -462,7 +463,7 @@ class GammaHRF(object):
             bdf = pd.DataFrame(index=params, columns=cols)
             bdf[:] = None
             bdf.update(pd.DataFrame(bounds, index=cols).T)
-            self.bounds = map(tuple, np.array(bdf).tolist())
+            self.bounds = list(map(tuple, np.array(bdf).tolist()))
 
     def fit(self, x, y, maxfev=0):
         """Optimize a fit to data using least squares.
