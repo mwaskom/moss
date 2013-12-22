@@ -8,8 +8,6 @@ import pandas as pd
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
 
-import seaborn as sns
-
 
 class HRFModel(object):
     """Abstract class definition for HRF Models."""
@@ -452,6 +450,7 @@ class DesignMatrix(object):
 
     def plot_confound_correlation(self, fname=None, legend=True):
         """Plot how correlated the condition and confound regressors are."""
+        import seaborn as sns
         corrs = self.design_matrix.corr()
         corrs = corrs.loc[self._confound_names, self._condition_names]
 
