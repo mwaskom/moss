@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from nipype.testing import assert_equal
+from numpy.testing import assert_equal
 
 from .. import locator
 
