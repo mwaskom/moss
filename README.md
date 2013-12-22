@@ -45,6 +45,8 @@ github repository and install with
 Testing
 -------
 
+[![Build Status](https://travis-ci.org/mwaskom/moss.png?branch=master)](https://travis-ci.org/mwaskom/moss)
+
 You can exercise the full test suite by running `nosetests` in the source
 directory.
 
