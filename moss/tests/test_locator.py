@@ -21,7 +21,6 @@ def test_locate_peaks():
 
     for coord, res in challenge:
         res = dict(zip(["MaxProb Region", "Prob"], list(res)))
-        print res
         res = pd.DataFrame(res, index=[0])
         yield assert_equal, np.array(res), np.array(locator.locate_peaks(coord))
 

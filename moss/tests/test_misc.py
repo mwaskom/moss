@@ -23,9 +23,9 @@ def test_iqr():
 def test_product_index():
     """Test the product_index function."""
     who = ["josh", "toby"]
-    what = range(3)
+    what = list("abc")
     idx = misc.product_index([who, what], names=["who", "what"])
     assert_equal(idx.names, ["who", "what"])
     assert_equal(idx.values.tolist(),
-                 [("josh", 0L), ("josh", 1L), ("josh", 2L),
-                  ("toby", 0L), ("toby", 1L), ("toby", 2L)])
+                 [("josh", "a"), ("josh", "b"), ("josh", "c"),
+                  ("toby", "a"), ("toby", "b"), ("toby", "c")])

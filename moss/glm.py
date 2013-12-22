@@ -1,12 +1,11 @@
 from __future__ import division
 
-from StringIO import StringIO
-import cPickle
 import numpy as np
 import scipy as sp
 import pandas as pd
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
+from six.moves import range, StringIO, cPickle
 
 
 class HRFModel(object):
@@ -622,7 +621,7 @@ def fsl_highpass_matrix(ntp, cutoff, tr=2):
 
     H = np.zeros((ntp, ntp))
     X = np.column_stack((np.ones(ntp), np.arange(ntp)))
-    for k in xrange(ntp):
+    for k in range(ntp):
         W = np.diag(K[k])
         hat = np.dot(np.dot(X, np.linalg.pinv(np.dot(W, X))), W)
         H[k] = hat[k]
