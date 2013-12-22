@@ -25,7 +25,8 @@ Dependencies
 
 - [scikit-learn](http://scikit-learn.org/stable/)
 
-- [seaborn](http://github.com/mwaskom/seaborn)
+- [six](http://pythonhosted.org/six/)
+
 
 
 Installation

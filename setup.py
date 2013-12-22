@@ -16,7 +16,7 @@ URL = 'https://github.com/mwaskom/moss'
 DOWNLOAD_URL = 'https://github.com/mwaskom/moss'
 VERSION = '0.2.dev'
 
-from numpy.distutils.core import setup
+from setuptools import setup
 
 
 if __name__ == "__main__":
@@ -42,4 +42,5 @@ if __name__ == "__main__":
                      'Operating System :: POSIX',
                      'Operating System :: Unix',
                      'Operating System :: MacOS']
+        install_requires=["patsy", "pandas", "statsmodels", "scikit-learn", "six"],
     )
