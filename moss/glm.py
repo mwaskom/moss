@@ -1,7 +1,15 @@
 from __future__ import division
 
-from StringIO import StringIO
-import cPickle
+try:
+    from StringIO import StringIO
+except ImportError:  # Py3K
+    from io import StringIO
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
 import numpy as np
 import scipy as sp
 import pandas as pd
@@ -553,13 +561,13 @@ class DesignMatrix(object):
     def to_pickle(self, fname):
         """Save the object as a pickle to a file."""
         with open(fname, "w") as fid:
-            cPickle.dump(self, fid)
+            pickle.dump(self, fid)
 
     @classmethod
     def from_pickle(cls, fname):
         """Load an object from a pickled file."""
         with open(fname, "r") as fid:
-            return cPickle.load(fid)
+            return pickle.load(fid)
 
     @property
     def main_submatrix(self):
