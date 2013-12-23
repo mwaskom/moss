@@ -14,7 +14,7 @@ MAINTAINER_EMAIL = 'mwaskom@stanford.edu'
 LICENSE = 'BSD (3-clause)'
 URL = 'https://github.com/mwaskom/moss'
 DOWNLOAD_URL = 'https://github.com/mwaskom/moss'
-VERSION = '0.2.dev'
+VERSION = '0.2.0'
 
 from setuptools import setup
 
