@@ -308,6 +308,20 @@ def test_design_matrix_confound_pca():
     nt.assert_equal(n_confounds, good_dims)
 
 
+def test_design_matrix_precomputed_kernel():
+    """Test that we can use a precomputed highpass filter matrix."""
+    F = glm.fsl_highpass_matrix(20, 8, 2)
+    hrf = glm.GammaDifferenceHRF()
+
+    design = pd.DataFrame(dict(condition=["one", "two"],
+                               onset=[5, 20]))
+    regressors = rs.randn(20, 2)
+
+    X_1 = glm.DesignMatrix(design, hrf, 20, regressors=regressors, hpf_cutoff=8)
+    X_2 = glm.DesignMatrix(design, hrf, 20, regressors=regressors, hpf_kernel=F)
+
+    npt.assert_array_equal(X_1.design_matrix, X_2.design_matrix)
+
 def test_highpass_matrix_shape():
     """Test the filter matrix is the right shape."""
     for n_tp in 10, 100:

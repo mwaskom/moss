@@ -157,7 +157,7 @@ class DesignMatrix(object):
     """
     def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
                  artifacts=None, condition_names=None, confound_pca=False,
-                 tr=2, hpf_cutoff=128, oversampling=16):
+                 tr=2, hpf_cutoff=128, hpf_kernel=None, oversampling=16):
         """Initialize the design matrix object.
 
         Parameters
@@ -197,6 +197,9 @@ class DesignMatrix(object):
             sampling interval (in seconds) of the data/design
         hpf_cutoff : float
             filter cutoff (in seconds), or None to skip the filter
+        hpf_kernel : ntp x ntp array
+            precomputed matrix to implement the highpass filter; overrides the
+            hpf_cutoff (i.e. it is not checked if they match).
         oversampling : float
             construction of the condition evs and convolution
             are performed on high-resolution data with this oversampling
@@ -232,6 +235,8 @@ class DesignMatrix(object):
         conditions = self._subsample_condition_matrix()
         conditions -= conditions.mean()
         pp_heights = (conditions.max() - conditions.min()).tolist()
+        if hpf_kernel is not None:
+            hpf_cutoff = hpf_kernel
         if hpf_cutoff is not None:
             conditions = self._highpass_filter(conditions, hpf_cutoff)
 
@@ -402,7 +407,10 @@ class DesignMatrix(object):
 
     def _highpass_filter(self, mat, cutoff):
         """Highpass-filter each column in mat."""
-        F = fsl_highpass_matrix(self._ntp, cutoff, self.tr)
+        if np.isscalar(cutoff):
+            F = fsl_highpass_matrix(self._ntp, cutoff, self.tr)
+        else:
+            F = cutoff
         for key, vals in mat.iteritems():
             mat[key] = np.dot(F, vals)
         return mat
