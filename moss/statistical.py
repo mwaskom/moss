@@ -9,22 +9,22 @@ from six.moves import range
 
 
 def bootstrap(*args, **kwargs):
-    """Resample one or more arrays and call a function on each sample.
+    """Resample one or more arrays with replacement and store aggregate values.
 
-    Positional arguments are a sequence of arrays to bootrap
-    along the first axis and pass to a summary function.
+    Positional arguments are a sequence of arrays to bootstrap along the first
+    axis and pass to a summary function.
 
     Keyword arguments:
-        n_boot : int
-            number of iterations
-        axis : int
-            will pass axis to ``func``
-        smooth : bool
-            if True, performs a smoothed bootstrap
-            (draws samples from a kernel destiny estimate)
-            only works for one-dimensional inputs
-        func : callable
-            function to call on the args that are passed in
+        n_boot : int, default 10000
+            Number of iterations
+        axis : int, default None
+            Will pass axis to ``func`` as a keyword argument.
+        smooth : bool, default False
+            If True, performs a smoothed bootstrap (draws samples from a kernel
+            destiny estimate); only works for one-dimensional inputs and cannot
+            be used `cases` is used.
+        func : callable, default np.mean
+            Function to call on the args that are passed in.
 
     Returns
     -------
