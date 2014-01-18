@@ -48,15 +48,24 @@ def bootstrap(*args, **kwargs):
         func_kwargs = dict(axis=axis)
 
     # Do the bootstrap
-    boot_dist = []
     if smooth:
-        kde = [stats.gaussian_kde(np.transpose(a)) for a in args]
+        return _smooth_bootstrap(args, n_boot, func, func_kwargs)
+
+    boot_dist = []
     for i in range(int(n_boot)):
-        if smooth:
-            sample = [a.resample(n).T for a in kde]
-        else:
-            resampler = np.random.randint(0, n, n)
-            sample = [a[resampler] for a in args]
+        resampler = np.random.randint(0, n, n)
+        sample = [a[resampler] for a in args]
+        boot_dist.append(func(*sample, **func_kwargs))
+    return np.array(boot_dist)
+
+
+def _smooth_bootstrap(args, n_boot, func, func_kwargs):
+
+    n = len(args[0])
+    boot_dist = []
+    kde = [stats.gaussian_kde(np.transpose(a)) for a in args]
+    for i in range(int(n_boot)):
+        sample = [a.resample(n).T for a in kde]
         boot_dist.append(func(*sample, **func_kwargs))
     return np.array(boot_dist)
 
