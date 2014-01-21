@@ -19,6 +19,8 @@ def bootstrap(*args, **kwargs):
             Number of iterations
         axis : int, default None
             Will pass axis to ``func`` as a keyword argument.
+        cases : array, default None
+            Array of case IDs. Resample cases instead of individual datapoints.
         smooth : bool, default False
             If True, performs a smoothed bootstrap (draws samples from a kernel
             destiny estimate); only works for one-dimensional inputs and cannot
@@ -41,26 +43,55 @@ def bootstrap(*args, **kwargs):
     n_boot = kwargs.get("n_boot", 10000)
     func = kwargs.get("func", np.mean)
     axis = kwargs.get("axis", None)
+    cases = kwargs.get("cases", None)
     smooth = kwargs.get("smooth", False)
     if axis is None:
         func_kwargs = dict()
     else:
         func_kwargs = dict(axis=axis)
 
+    # Coerce to arrays
+    args = map(np.asarray, args)
+    if cases is not None:
+        cases = np.asarray(cases)
+
     # Do the bootstrap
     if smooth:
         return _smooth_bootstrap(args, n_boot, func, func_kwargs)
 
+    if cases is not None:
+        return _structured_bootstrap(args, n_boot, cases, func, func_kwargs)
+
     boot_dist = []
     for i in range(int(n_boot)):
         resampler = np.random.randint(0, n, n)
+        sample = [a.take(resampler, axis=0) for a in args]
+        boot_dist.append(func(*sample, **func_kwargs))
+    return np.array(boot_dist)
+
+
+def _structured_bootstrap(args, n_boot, cases, func, func_kwargs):
+    """Resample cases instead of datapoints."""
+    unique_cases = np.unique(cases)
+    n_cases = len(unique_cases)
+
+    args = [[a[cases == case] for case in unique_cases] for a in args]
+
+    boot_dist = []
+    for i in range(int(n_boot)):
+        resampler = np.random.randint(0, n_cases, n_cases)
         sample = [np.take(a, resampler, axis=0) for a in args]
+        lengths = map(len, sample[0])
+        resampler = [np.random.randint(0, n, n) for n in lengths]
+        sample = [[c.take(r, axis=0) for c, r in zip(a, resampler)]
+                  for a in sample]
+        sample = list(map(np.concatenate, sample))
         boot_dist.append(func(*sample, **func_kwargs))
     return np.array(boot_dist)
 
 
 def _smooth_bootstrap(args, n_boot, func, func_kwargs):
-
+    """Bootstrap by resampling from a kernel density estimate."""
     n = len(args[0])
     boot_dist = []
     kde = [stats.gaussian_kde(np.transpose(a)) for a in args]
