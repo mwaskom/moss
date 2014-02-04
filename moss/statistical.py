@@ -21,13 +21,17 @@ def bootstrap(*args, **kwargs):
             Will pass axis to ``func`` as a keyword argument.
         units : array, default None
             Array of sampling unit IDs. When used the bootstrap resamples units
-            and then observations within units instead of individual datapoints.
+            and then observations within units instead of individual
+            datapoints.
         smooth : bool, default False
             If True, performs a smoothed bootstrap (draws samples from a kernel
             destiny estimate); only works for one-dimensional inputs and cannot
-            be used `units` is used.
+            be used `units` is present.
         func : callable, default np.mean
             Function to call on the args that are passed in.
+        random_seed : int | None, default None
+            Seed for the random number generator; useful if you want
+            reproducible resamples.
 
     Returns
     -------
@@ -46,10 +50,14 @@ def bootstrap(*args, **kwargs):
     axis = kwargs.get("axis", None)
     units = kwargs.get("units", None)
     smooth = kwargs.get("smooth", False)
+    random_seed = kwargs.get("random_seed", None)
     if axis is None:
         func_kwargs = dict()
     else:
         func_kwargs = dict(axis=axis)
+
+    # Initialize the resampler
+    rs = np.random.RandomState(random_seed)
 
     # Coerce to arrays
     args = map(np.asarray, args)
@@ -61,17 +69,17 @@ def bootstrap(*args, **kwargs):
         return _smooth_bootstrap(args, n_boot, func, func_kwargs)
 
     if units is not None:
-        return _structured_bootstrap(args, n_boot, units, func, func_kwargs)
+        return _structured_bootstrap(args, n_boot, units, func, func_kwargs, rs)
 
     boot_dist = []
     for i in range(int(n_boot)):
-        resampler = np.random.randint(0, n, n)
+        resampler = rs.randint(0, n, n)
         sample = [a.take(resampler, axis=0) for a in args]
         boot_dist.append(func(*sample, **func_kwargs))
     return np.array(boot_dist)
 
 
-def _structured_bootstrap(args, n_boot, units, func, func_kwargs):
+def _structured_bootstrap(args, n_boot, units, func, func_kwargs, rs):
     """Resample units instead of datapoints."""
     unique_units = np.unique(units)
     n_units = len(unique_units)
@@ -80,10 +88,10 @@ def _structured_bootstrap(args, n_boot, units, func, func_kwargs):
 
     boot_dist = []
     for i in range(int(n_boot)):
-        resampler = np.random.randint(0, n_units, n_units)
+        resampler = rs.randint(0, n_units, n_units)
         sample = [np.take(a, resampler, axis=0) for a in args]
         lengths = map(len, sample[0])
-        resampler = [np.random.randint(0, n, n) for n in lengths]
+        resampler = [rs.randint(0, n, n) for n in lengths]
         sample = [[c.take(r, axis=0) for c, r in zip(a, resampler)]
                   for a in sample]
         sample = list(map(np.concatenate, sample))
