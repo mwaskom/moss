@@ -60,7 +60,7 @@ def bootstrap(*args, **kwargs):
     rs = np.random.RandomState(random_seed)
 
     # Coerce to arrays
-    args = map(np.asarray, args)
+    args = list(map(np.asarray, args))
     if units is not None:
         units = np.asarray(units)
 
