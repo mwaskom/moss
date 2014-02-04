@@ -76,6 +76,15 @@ def test_bootstrap_axis():
     assert_equal(out_axis.shape, (n_boot, 20))
 
 
+def test_bootstrap_random_seed():
+    """Test that we can get reproducible resamples by seeding the RNG."""
+    data = rs.randn(50)
+    seed = 42
+    boots1 = stat.bootstrap(data, random_seed=seed)
+    boots2 = stat.bootstrap(data, random_seed=seed)
+    assert_array_equal(boots1, boots2)
+
+
 def test_smooth_bootstrap():
     """Test smooth bootstrap."""
     x = rs.randn(15)
@@ -108,6 +117,20 @@ def test_bootstrap_ols():
     assert_equal(w_boot_lownoise.shape, (n_boot, 5))
     nose.tools.assert_greater(w_boot_noisy.std(),
                               w_boot_lownoise.std())
+
+
+def test_bootstrap_units():
+    """Test that results make sense when passing unit IDs to bootstrap."""
+    data = rs.randn(50)
+    ids = np.repeat(range(10), 5)
+    bwerr = rs.normal(0, 2, 10)
+    bwerr = bwerr[ids]
+    data_rm = data + bwerr
+    seed = 77
+
+    boots_orig = stat.bootstrap(data_rm, random_seed=seed)
+    boots_rm = stat.bootstrap(data_rm, units=ids, random_seed=seed)
+    nose.tools.assert_greater(boots_rm.std(), boots_orig.std())
 
 
 @raises(ValueError)
