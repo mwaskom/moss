@@ -3,8 +3,10 @@ language: python
 python:
   - 2.7
   - 3.3
+  - 3.4
 
 install:
+  - conda update conda --yes
   - conda create -n testenv --yes pip python=$TRAVIS_PYTHON_VERSION
   - source activate testenv
   - conda install --yes numpy scipy nose matplotlib pandas statsmodels scikit-learn six
