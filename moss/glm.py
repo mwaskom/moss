@@ -155,9 +155,10 @@ class DesignMatrix(object):
     matrix (e.g., no frames had artifacts), these attributes are `None`.
 
     """
-    def __init__(self, design, hrf_model, ntp, regressors=None, confounds=None,
-                 artifacts=None, condition_names=None, confound_pca=False,
-                 tr=2, hpf_cutoff=128, hpf_kernel=None, oversampling=16):
+    def __init__(self, design=None, hrf_model=None, ntp=None, regressors=None,
+                 confounds=None, artifacts=None, condition_names=None,
+                 confound_pca=False, tr=2, hpf_cutoff=128, hpf_kernel=None,
+                 oversampling=16):
         """Initialize the design matrix object.
 
         Parameters
@@ -205,14 +206,20 @@ class DesignMatrix(object):
             are performed on high-resolution data with this oversampling
 
         """
-        if "duration" not in design:
-            design["duration"] = 0
-        if "value" not in design:
-            design["value"] = 1
-
-        self.design = design
         self.tr = tr
+        if hrf_model is None:
+            hrf_model = GammaDifferenceHRF(tr=tr)
 
+        # Try to infer the timepoints from passed regressors or confounds
+        if ntp is None:
+            if regressors is not None:
+                ntp = regressors.shape[0]
+            elif confounds is not None:
+                ntp = confounds.shape[0]
+            else:
+                raise ValueError("Could not infer ntp")
+
+        # Infer the original and resampled frametime vectors
         stop = ntp * tr
         frametimes = np.arange(0, stop, tr, np.float)
         self.frametimes = pd.Series(frametimes, name="frametimes")
@@ -221,24 +228,39 @@ class DesignMatrix(object):
         hires_frametimes = np.arange(0, stop, tr / oversampling, np.float)
         self._hires_frametimes = hires_frametimes
 
-        if condition_names is None:
-            condition_names = np.sort(design.condition.unique())
-        self._condition_names = pd.Series(condition_names, name="conditions")
+        # The design portion is optional
+        if design is None:
+            conditions = None
+            self._condition_names = pd.Series([], name="conditions")
+            pp_heights = []
+            self.design = design
+        else:
+            if "duration" not in design:
+                design["duration"] = 0
+            if "value" not in design:
+                design["value"] = 1
 
-        self._ntp = ntp
+            self.design = design
 
-        # Convolve the oversampled condition evs
-        self._make_hires_base(oversampling)
-        self._convolve(hrf_model)
+            if condition_names is None:
+                condition_names = np.sort(design.condition.unique())
+            self._condition_names = pd.Series(condition_names,
+                                              name="conditions")
 
-        # Subsample the condition evs and highpass filter
-        conditions = self._subsample_condition_matrix()
-        conditions -= conditions.mean()
-        pp_heights = (conditions.max() - conditions.min()).tolist()
-        if hpf_kernel is not None:
-            hpf_cutoff = hpf_kernel
-        if hpf_cutoff is not None:
-            conditions = self._highpass_filter(conditions, hpf_cutoff)
+            self._ntp = ntp
+
+            # Convolve the oversampled condition evs
+            self._make_hires_base(oversampling)
+            self._convolve(hrf_model)
+
+            # Subsample the condition evs and highpass filter
+            conditions = self._subsample_condition_matrix()
+            conditions -= conditions.mean()
+            pp_heights = (conditions.max() - conditions.min()).tolist()
+            if hpf_kernel is not None:
+                hpf_cutoff = hpf_kernel
+            if hpf_cutoff is not None:
+                conditions = self._highpass_filter(conditions, hpf_cutoff)
 
         # Set up the other regressors of interest
         regressors = self._validate_component(regressors, "regressor")
@@ -264,7 +286,9 @@ class DesignMatrix(object):
                 artifacts = None
 
         # Now build the full design matrix
-        pieces = [conditions]
+        pieces = []
+        if conditions is not None:
+            pieces.append(conditions)
         if regressors is not None:
             pieces.append(regressors)
         if confounds is not None:

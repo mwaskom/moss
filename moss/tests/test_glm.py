@@ -322,6 +322,20 @@ def test_design_matrix_precomputed_kernel():
 
     npt.assert_array_equal(X_1.design_matrix, X_2.design_matrix)
 
+def test_design_matrix_only_regressors():
+    """Test that the design component of the matrix is optional."""
+    regressors = rs.randn(20, 2)
+    design = glm.DesignMatrix(regressors=regressors)
+    npt.assert_array_equal(design.design_matrix.columns,
+                           ["regressor_0", "regressor_1"])
+
+def test_design_matrix_only_confounds():
+    """Test that the design component of the matrix is optional."""
+    confounds = rs.randn(20, 2)
+    design = glm.DesignMatrix(confounds=confounds)
+    npt.assert_array_equal(design.design_matrix.columns,
+                           ["confound_0", "confound_1"])
+
 def test_highpass_matrix_shape():
     """Test the filter matrix is the right shape."""
     for n_tp in 10, 100:
