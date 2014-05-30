@@ -9,62 +9,134 @@ import nose.tools as nt
 import numpy.testing as npt
 from .. import slicer
 
-has_fsl = "FSLDIR" in os.environ
-
 
 class TestSlicer(object):
 
-    if not has_fsl:
+    if not "FSLDIR" in os.environ:
         raise nose.SkipTest
 
-    mni_file = os.path.join(os.environ["FSLDIR"],
-                            "data/standard/avg152T1_brain.nii.gz")
-    mni_img = nib.load(mni_file)
-    mni_data = mni_img.get_data()
+    anat_file = os.path.join(os.environ["FSLDIR"],
+                             "data/standard/avg152T1_brain.nii.gz")
+    anat_img = nib.load(anat_file)
+    anat_data = anat_img.get_data()
+
+    mask_file = os.path.join(os.environ["FSLDIR"],
+                             "data/standard/MNI152_T1_2mm_brain_mask.nii.gz")
+    mask_img = nib.load(mask_file)
+    mask_data = mask_img.get_data()
+
+    rs = np.random.RandomState(99)
+    stat_data = mask_data.astype(np.float) * rs.normal(0, 1, mask_data.shape)
+    stat_img = nib.Nifti1Image(stat_data, mask_img.get_affine())
 
     def test_slicer_init_path(self):
 
-        slicer.Slicer(self.mni_file)
+        slicer.Slicer(self.anat_file)
         plt.close("all")
 
     def test_slicer_init_img(self):
 
-        slicer.Slicer(self.mni_img)
+        slicer.Slicer(self.anat_img)
         plt.close("all")
 
     def test_slicer_init_array(self):
 
-        slicer.Slicer(self.mni_data)
+        slicer.Slicer(self.anat_data)
         plt.close("all")
 
     def test_mosiac_cols(self):
 
-        slc = slicer.Slicer(self.mni_img, n_col=5)
+        slc = slicer.Slicer(self.anat_img, n_col=5)
         nt.assert_equal(slc.axes.shape[1], 5)
         plt.close("all")
 
     def test_mosiac_step(self):
 
-        step1 = slicer.Slicer(self.mni_img, step=1)
-        step2 = slicer.Slicer(self.mni_img, step=2)
+        step1 = slicer.Slicer(self.anat_img, step=1)
+        step2 = slicer.Slicer(self.anat_img, step=2)
         nt.assert_equal(len(step2.axes.flat) * 2, len(step1.axes.flat))
         plt.close("all")
 
     def test_moasic_tight(self):
 
-        mask = (self.mni_data * 0).astype(np.int8)
+        mask = (self.anat_data * 0).astype(np.int8)
         mask[:, :, 40:60] = 1
-        slc = slicer.Slicer(self.mni_img, mask=mask, step=1, tight=True)
+        slc = slicer.Slicer(self.anat_img, mask=mask, step=1, tight=True)
         nt.assert_equal(len(slc.axes.flat), 20)
         plt.close("all")
 
-    def test_anat_img(self):
+    def test_anat_image_data(self):
 
-        slc = slicer.Slicer(self.mni_img, step=1)
+        slc = slicer.Slicer(self.anat_img)
         plot_data = slc.anat_img.get_data()
         want_image = np.rot90(plot_data[slc.x_slice,
                                         slc.y_slice,
                                         slc.z_slice][:, :, 10])
         got_image = slc.axes.flat[10].images[0].get_array()
         npt.assert_array_equal(want_image, got_image)
+        plt.close("all")
+
+    def test_mask_image_data(self):
+
+        slc = slicer.Slicer(self.anat_img, mask=self.mask_img)
+        mask_data = slc.mask_img.get_data()
+        mask_sliced = np.rot90(mask_data[slc.x_slice,
+                                         slc.y_slice,
+                                         slc.z_slice][:, :, 10])
+        mask_image = slc.axes.flat[10].images[1].get_array()
+        mask_overlap = mask_image * mask_sliced
+        nt.assert_true(not mask_overlap.any())
+        plt.close("all")
+
+    def test_statistical_overlays(self):
+
+        slc1 = slicer.Slicer(self.anat_img, self.stat_img)
+        slc2 = slicer.Slicer(self.anat_img, self.stat_img)
+
+        slc1.plot_activation(thresh=1, vmin=.5, vmax=1.5,
+                             pos_cmap="Purples_r", alpha=.9)
+        slc2.plot_overlay(thresh=1, vmin=.5, vmax=1.5,
+                          cmap="Purples_r", alpha=.9)
+
+        for ax1, ax2 in zip(slc1.axes.flat, slc2.axes.flat):
+            npt.assert_array_almost_equal(ax1.images[1].get_array().data,
+                                          ax2.images[1].get_array().data)
+        plt.close("all")
+
+    def test_bipolar_overlays(self):
+
+        slc = slicer.Slicer(self.anat_img, self.stat_img)
+
+        slc.plot_activation(thresh=1, vmin=.5, vmax=1.5,
+                           neg_cmap="Blues",  alpha=.9)
+
+        ax = slc.axes.flat[10]
+        nt.assert_equal(len(ax.images), 3)
+        pos = ax.images[1].get_array()
+        neg = ax.images[2].get_array()
+        nt.assert_true(pos[~np.isnan(pos)].min() >= 1)
+        nt.assert_true(neg[~np.isnan(neg)].max() <= -1)
+        plt.close("all")
+
+    def test_statistical_overlay_by_map(self):
+
+        slc1 = slicer.Slicer(self.anat_img, self.stat_img)
+        slc2 = slicer.Slicer(self.anat_img)
+
+        slc1.plot_overlay(vmin=-1, vmax=1, cmap="coolwarm", alpha=.9)
+        slc2.map("imshow", self.stat_img, vmin=-1, vmax=1,
+                 cmap="coolwarm", alpha=.9)
+
+        for ax1, ax2 in zip(slc1.axes.flat, slc2.axes.flat):
+            npt.assert_array_almost_equal(ax1.images[1].get_array().data,
+                                          ax2.images[1].get_array().data)
+        plt.close("all")
+
+    def test_mask_overlay(self):
+
+        slc = slicer.Slicer(self.anat_img, self.mask_img)
+        slc.plot_mask()
+        overlay_data = slc.axes.flat[10].images[1].get_array().data
+        overlay_vals = np.unique(np.nan_to_num(overlay_data))
+        npt.assert_array_equal(overlay_vals, [0, 1])
         plt.close("all")

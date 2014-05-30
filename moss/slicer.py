@@ -1,5 +1,7 @@
 from __future__ import division
+import os
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
 from six import string_types
@@ -9,7 +11,7 @@ from .nipy import VolumeImg
 
 class Slicer(object):
 
-    def __init__(self, anat, stat=None, mask=None, n_col=10, step=2,
+    def __init__(self, anat=None, stat=None, mask=None, n_col=10, step=2,
                  tight=True):
         """Plot a mosiac of axial slices through an MRI volume.
 
@@ -18,7 +20,8 @@ class Slicer(object):
         anat : filename, nibabel image, or array
             The anatomical image that will form the background of the mosiac.
             If only an array is passed, an identity matrix will be used as
-            the affine and orientation could be incorrect.
+            the affine and orientation could be incorrect. If absent, try 
+            to find the FSL data and uses the MNI152 brain.
         stat : filename, nibabel image, or array
             A statistical map to plot as an overlay (which happens by calling
             one of the methods). If only an array is passed, it is assumed
@@ -37,6 +40,10 @@ class Slicer(object):
 
         """
         # Load and reorient the anatomical image
+        if anat is None:
+            if "FSLDIR" in os.environ:
+                anat = os.path.join(os.environ["FSLDIR"],
+                                    "data/standard/avg152T1_brain.nii.gz")
         if isinstance(anat, string_types):
             anat_img = nib.load(anat)
             have_orientation = True
@@ -134,15 +141,13 @@ class Slicer(object):
         anat_data = self.anat_img.get_data()
         vmin, vmax = 0, anat_data[self.fov].max() * 1.1
         anat_fov = anat_data[self.x_slice, self.y_slice, self.z_slice]
-        anat_slices = anat_fov.transpose(2, 0, 1)
-        for data, ax in zip(anat_slices, self.axes.flat):
-            ax.imshow(np.rot90(data), cmap="Greys_r", vmin=vmin, vmax=vmax)
+        self._map("imshow", anat_fov, cmap="Greys_r", vmin=vmin, vmax=vmax)
 
-        empty_slices = len(self.axes.flat) - len(anat_slices)
+        empty_slices = len(self.axes.flat) - anat_fov.shape[2]
         if empty_slices > 0:
-            shape = np.rot90(data).shape
+            i, j, _ = anat_fov.shape
             for ax in self.axes.flat[-empty_slices:]:
-                ax.imshow(np.zeros(shape), cmap="Greys_r", vmin=0, vmax=10)
+                ax.imshow(np.zeros((i, j)), cmap="Greys_r", vmin=0, vmax=10)
 
     def _plot_inverse_mask(self):
         """Dim the voxels outside of the statistical analysis FOV."""
@@ -150,10 +155,15 @@ class Slicer(object):
         anat_data = self.anat_img.get_data()
         mask_data = np.where(mask_data | (anat_data < 1e-5), np.nan, 1)
         mask_fov = mask_data[self.x_slice, self.y_slice, self.z_slice]
-        mask_slices = mask_fov.transpose(2, 0, 1)
-        for data, ax in zip(mask_slices, self.axes.flat):
-            ax.imshow(np.rot90(data), cmap="bone", interpolation="nearest",
-                      alpha=.5, vmin=0, vmax=3)
+        self._map("imshow", mask_fov, cmap="bone", vmin=0, vmax=3,
+                  interpolation="nearest", alpha=.5)
+
+    def _map(self, func_name, data, **kwargs):
+        """Apply a named function to a 3D volume of data on each axes."""
+        slices = data.transpose(2, 0, 1)
+        for slice, ax in zip(slices, self.axes.flat):
+            func = getattr(ax, func_name)
+            func(np.rot90(slice), **kwargs)
 
     def plot_activation(self, thresh=2, vmin=None, vmax=None, vmax_perc=99,
                         pos_cmap="Reds_r", neg_cmap=None, alpha=1):
@@ -175,7 +185,7 @@ class Slicer(object):
             The colormapping for the positive and negative overlays.
         alpha : float
             The transparancy of the overlay.
-        
+
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
                                              self.y_slice,
@@ -188,19 +198,16 @@ class Slicer(object):
             calc_data = stat_data[np.abs(stat_data) > thresh]
             vmax = np.percentile(np.abs(calc_data), vmax_perc)
 
-        pos_slices = pos_data.transpose(2, 0, 1)
-        for data, ax in zip(pos_slices, self.axes.flat):
-            ax.imshow(np.rot90(data), cmap=pos_cmap,
-                      vmin=vmin, vmax=vmax, alpha=alpha)
+        self._map("imshow", pos_data, cmap=pos_cmap,
+                  vmin=vmin, vmax=vmax, alpha=alpha)
 
         if neg_cmap is not None:
             thresh, nvmin, nvmax = -thresh, -vmax, -vmin
             neg_data = stat_data.copy()
             neg_data[neg_data > thresh] = np.nan
-            neg_slices = neg_data.transpose(2, 0, 1)
-            for data, ax in zip(neg_slices, self.axes.flat):
-                ax.imshow(np.rot90(data), cmap=neg_cmap,
-                          vmin=nvmin, vmax=nvmax, alpha=alpha)
+
+            self._map("imshow", neg_data, cmap=neg_cmap,
+                      vmin=nvmin, vmax=nvmax, alpha=alpha)
 
             self._add_double_colorbar(vmin, vmax, pos_cmap, neg_cmap)
         else:
@@ -218,9 +225,9 @@ class Slicer(object):
             The anchor values for the colormap. The same values will be used
             for the positive and negative overlay.
         vmin_perc, vmax_perc : ints
-            The percentiles of the data (within the fov and above the threshold)
-            that will be anchor points for the colormap by default. Overriden if
-            specific values are passed for vmin or vmax.
+            The percentiles of the data (within fov and above threshold)
+            that will be anchor points for the colormap by default. Overriden
+            if specific values are passed for vmin or vmax.
         thresh : float
             Threshold value for the statistic; overlay will not be visible
             between -thresh and thresh.
@@ -228,7 +235,7 @@ class Slicer(object):
             The colormapping for the positive and negative overlays.
         alpha : float
             The transparancy of the overlay.
-        
+
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
                                              self.y_slice,
@@ -249,12 +256,65 @@ class Slicer(object):
 
         stat_data[~fov] = np.nan
 
-        slices = stat_data.transpose(2, 0, 1)
-        for data, ax in zip(slices, self.axes.flat):
-            ax.imshow(np.rot90(data), cmap=cmap,
-                      vmin=vmin, vmax=vmax, alpha=alpha)
+        self._map("imshow", stat_data, cmap=cmap,
+                  vmin=vmin, vmax=vmax, alpha=alpha)
 
         self._add_single_colorbar(vmin, vmax, cmap)
+
+    def plot_mask(self, color="#3cb371", alpha=.66):
+        """Plot the statistical volume as a binary mask."""
+        mask_data = self.stat_img.get_data()[self.x_slice,
+                                             self.y_slice,
+                                             self.z_slice]
+        bool_mask = mask_data.astype(bool)
+        mask_data = bool_mask.astype(np.float)
+        mask_data[~bool_mask] = np.nan
+
+        cmap = mpl.colors.ListedColormap([color])
+        self._map("imshow", mask_data, cmap=cmap, vmin=.5, vmax=1.5,
+                  interpolation="nearest", alpha=alpha)
+
+    def plot_contours(self, cmap, levels=8, linewidths=1):
+        """Plot the statistical volume as a contour map."""
+        slices = self.stat_img.get_data()[self.x_slice,
+                                          self.y_slice,
+                                          self.z_slice].transpose(2, 0, 1)
+
+        if isinstance(cmap, list):
+            levels = len(cmap)
+            cmap = mpl.colors.ListedColormap(cmap)
+
+        vmin, vmax = np.percentile(slices, [1, 99])
+        for slice, ax in zip(slices, self.axes.flat):
+            try:
+                ax.contour(np.rot90(slice), levels, cmap=cmap,
+                           vmin=vmin, vmax=vmax, linewidths=linewidths)
+            except ValueError:
+                pass
+
+    def map(self, func_name, data, **kwargs):
+        """Map a dataset across the mosiac of axes.
+
+        Parameters
+        ----------
+        func_name : str
+            Name of a pyplot function.
+        data : filename, nibabel image, or array
+            Dataset to plot.
+        kwargs : key, value mappings
+            Other keyword arguments are passed to the plotting function.
+
+        """
+        if isinstance(data, string_types):
+            data_img = nib.load(data)
+        elif isinstance(data, np.ndarray):
+            data_img = nib.Nifti1Image(data, np.eye(4))
+        else:
+            data_img = data
+        data = VolumeImg(data_img.get_data(), data_img.get_affine(),
+                         "mni").xyz_ordered(resample=True).get_data()
+        data = data[self.x_slice, self.y_slice, self.z_slice]
+        self._map(func_name, data, **kwargs)
 
     def _pad_for_cbar(self):
         """Add extra space to the bottom of the figure for the colorbars."""
