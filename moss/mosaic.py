@@ -292,7 +292,7 @@ class Mosaic(object):
             except ValueError:
                 pass
 
-    def map(self, func_name, data, **kwargs):
+    def map(self, func_name, data, thresh=None, **kwargs):
         """Map a dataset across the mosaic of axes.
 
         Parameters
@@ -301,6 +301,8 @@ class Mosaic(object):
             Name of a pyplot function.
         data : filename, nibabel image, or array
             Dataset to plot.
+        thresh : float
+            Don't map voxels in ``data`` below this threshold.
         kwargs : key, value mappings
             Other keyword arguments are passed to the plotting function.
 
@@ -313,6 +315,8 @@ class Mosaic(object):
             data_img = data
         data = VolumeImg(data_img.get_data(), data_img.get_affine(),
                          "mni").xyz_ordered(resample=True).get_data()
+        data = data.astype(np.float)
+        data[data < thresh] = np.nan
         data = data[self.x_slice, self.y_slice, self.z_slice]
         self._map(func_name, data, **kwargs)
 
