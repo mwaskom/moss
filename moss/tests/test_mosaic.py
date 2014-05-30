@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 import nose
 import nose.tools as nt
 import numpy.testing as npt
-from .. import slicer
+from .. import mosaic
 
 
-class TestSlicer(object):
+class TestMosaic(object):
 
     if not "FSLDIR" in os.environ:
         raise nose.SkipTest
@@ -29,31 +29,31 @@ class TestSlicer(object):
     stat_data = mask_data.astype(np.float) * rs.normal(0, 1, mask_data.shape)
     stat_img = nib.Nifti1Image(stat_data, mask_img.get_affine())
 
-    def test_slicer_init_path(self):
+    def test_mosaic_init_path(self):
 
-        slicer.Slicer(self.anat_file)
+        mosaic.Mosaic(self.anat_file)
         plt.close("all")
 
-    def test_slicer_init_img(self):
+    def test_mosaic_init_img(self):
 
-        slicer.Slicer(self.anat_img)
+        mosaic.Mosaic(self.anat_img)
         plt.close("all")
 
-    def test_slicer_init_array(self):
+    def test_mosaic_init_array(self):
 
-        slicer.Slicer(self.anat_data)
+        mosaic.Mosaic(self.anat_data)
         plt.close("all")
 
-    def test_mosiac_cols(self):
+    def test_mosaic_cols(self):
 
-        slc = slicer.Slicer(self.anat_img, n_col=5)
+        slc = mosaic.Mosaic(self.anat_img, n_col=5)
         nt.assert_equal(slc.axes.shape[1], 5)
         plt.close("all")
 
-    def test_mosiac_step(self):
+    def test_mosaic_step(self):
 
-        step1 = slicer.Slicer(self.anat_img, step=1)
-        step2 = slicer.Slicer(self.anat_img, step=2)
+        step1 = mosaic.Mosaic(self.anat_img, step=1)
+        step2 = mosaic.Mosaic(self.anat_img, step=2)
         nt.assert_equal(len(step2.axes.flat) * 2, len(step1.axes.flat))
         plt.close("all")
 
@@ -61,13 +61,13 @@ class TestSlicer(object):
 
         mask = (self.anat_data * 0).astype(np.int8)
         mask[:, :, 40:60] = 1
-        slc = slicer.Slicer(self.anat_img, mask=mask, step=1, tight=True)
+        slc = mosaic.Mosaic(self.anat_img, mask=mask, step=1, tight=True)
         nt.assert_equal(len(slc.axes.flat), 20)
         plt.close("all")
 
     def test_anat_image_data(self):
 
-        slc = slicer.Slicer(self.anat_img)
+        slc = mosaic.Mosaic(self.anat_img)
         plot_data = slc.anat_img.get_data()
         want_image = np.rot90(plot_data[slc.x_slice,
                                         slc.y_slice,
@@ -78,7 +78,7 @@ class TestSlicer(object):
 
     def test_mask_image_data(self):
 
-        slc = slicer.Slicer(self.anat_img, mask=self.mask_img)
+        slc = mosaic.Mosaic(self.anat_img, mask=self.mask_img)
         mask_data = slc.mask_img.get_data()
         mask_sliced = np.rot90(mask_data[slc.x_slice,
                                          slc.y_slice,
@@ -90,8 +90,8 @@ class TestSlicer(object):
 
     def test_statistical_overlays(self):
 
-        slc1 = slicer.Slicer(self.anat_img, self.stat_img)
-        slc2 = slicer.Slicer(self.anat_img, self.stat_img)
+        slc1 = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc2 = mosaic.Mosaic(self.anat_img, self.stat_img)
 
         slc1.plot_activation(thresh=1, vmin=.5, vmax=1.5,
                              pos_cmap="Purples_r", alpha=.9)
@@ -105,7 +105,7 @@ class TestSlicer(object):
 
     def test_bipolar_overlays(self):
 
-        slc = slicer.Slicer(self.anat_img, self.stat_img)
+        slc = mosaic.Mosaic(self.anat_img, self.stat_img)
 
         slc.plot_activation(thresh=1, vmin=.5, vmax=1.5,
                            neg_cmap="Blues",  alpha=.9)
@@ -120,8 +120,8 @@ class TestSlicer(object):
 
     def test_statistical_overlay_by_map(self):
 
-        slc1 = slicer.Slicer(self.anat_img, self.stat_img)
-        slc2 = slicer.Slicer(self.anat_img)
+        slc1 = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc2 = mosaic.Mosaic(self.anat_img)
 
         slc1.plot_overlay(vmin=-1, vmax=1, cmap="coolwarm", alpha=.9)
         slc2.map("imshow", self.stat_img, vmin=-1, vmax=1,
@@ -134,7 +134,7 @@ class TestSlicer(object):
 
     def test_mask_overlay(self):
 
-        slc = slicer.Slicer(self.anat_img, self.mask_img)
+        slc = mosaic.Mosaic(self.anat_img, self.mask_img)
         slc.plot_mask()
         overlay_data = slc.axes.flat[10].images[1].get_array().data
         overlay_vals = np.unique(np.nan_to_num(overlay_data))

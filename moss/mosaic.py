@@ -9,16 +9,16 @@ from six import string_types
 from .nipy import VolumeImg
 
 
-class Slicer(object):
+class Mosaic(object):
 
     def __init__(self, anat=None, stat=None, mask=None, n_col=10, step=2,
                  tight=True):
-        """Plot a mosiac of axial slices through an MRI volume.
+        """Plot a mosaic of axial slices through an MRI volume.
 
         Parameters
         ----------
         anat : filename, nibabel image, or array
-            The anatomical image that will form the background of the mosiac.
+            The anatomical image that will form the background of the mosaic.
             If only an array is passed, an identity matrix will be used as
             the affine and orientation could be incorrect. If absent, try 
             to find the FSL data and uses the MNI152 brain.
@@ -97,11 +97,11 @@ class Slicer(object):
             self.fov = fov = anat_fov | mask_data
             self.fov_slices = fov_slices = mask_data.any(axis=(0, 1))
 
-        # Save the mosiac parameters
+        # Save the mosaic parameters
         self.n_col = n_col
         self.step = step
 
-        # Sort out the slicers to focus on the brain and step properly
+        # Sort out the mosaics to focus on the brain and step properly
         self.start = start = np.argwhere(fov_slices).min()
         self.z_slice = slice(start, None, step)
         mask_x = np.argwhere(fov.any(axis=(1, 2)))
@@ -293,7 +293,7 @@ class Slicer(object):
                 pass
 
     def map(self, func_name, data, **kwargs):
-        """Map a dataset across the mosiac of axes.
+        """Map a dataset across the mosaic of axes.
 
         Parameters
         ----------
