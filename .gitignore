@@ -1,3 +1,7 @@
 *.pyc
 *.sw*
 build/
+.coverage*
+cover/
+dist/
+moss.egg-info
