@@ -11,7 +11,7 @@ from .nipy import VolumeImg
 
 class Mosaic(object):
 
-    def __init__(self, anat=None, stat=None, mask=None, n_col=10, step=2,
+    def __init__(self, anat=None, stat=None, mask=None, n_col=9, step=2,
                  tight=True):
         """Plot a mosaic of axial slices through an MRI volume.
 
@@ -166,7 +166,7 @@ class Mosaic(object):
             func(np.rot90(slice), **kwargs)
 
     def plot_activation(self, thresh=2, vmin=None, vmax=None, vmax_perc=99,
-                        pos_cmap="Reds_r", neg_cmap=None, alpha=1):
+                        vfloor=None, pos_cmap="Reds_r", neg_cmap=None, alpha=1):
         """Plot the stat image as uni- or bi-polar activation with a threshold.
 
         Parameters
@@ -181,6 +181,9 @@ class Mosaic(object):
             The percentile of the data (within the fov and above the threshold)
             at which to saturate the colormap by default. Overriden if a there
             is a specific value passed for vmax.
+        vfloor : float or None
+            If not None, this sets the vmax value, if the value at the provided 
+            vmax_perc does not exceed it.
         pos_cmap, neg_cmap : names of colormaps or colormap objects
             The colormapping for the positive and negative overlays.
         alpha : float
@@ -213,7 +216,7 @@ class Mosaic(object):
         else:
             self._add_single_colorbar(vmin, vmax, pos_cmap)
 
-    def plot_overlay(self, cmap, vmin=None, vmax=None,
+    def plot_overlay(self, cmap, vmin=None, vmax=None, center=False,
                      vmin_perc=1, vmax_perc=99, thresh=None, alpha=1):
         """Plot the stat image as a single overlay with a threshold.
 
@@ -224,6 +227,10 @@ class Mosaic(object):
         vmin, vmax : floats
             The anchor values for the colormap. The same values will be used
             for the positive and negative overlay.
+        center : bool
+            If true, center the colormap. This respects the larger absolute
+            value from the other (vmin, vmax) arguments, but overrides the
+            smaller one.
         vmin_perc, vmax_perc : ints
             The percentiles of the data (within fov and above threshold)
             that will be anchor points for the colormap by default. Overriden
@@ -231,8 +238,6 @@ class Mosaic(object):
         thresh : float
             Threshold value for the statistic; overlay will not be visible
             between -thresh and thresh.
-        pos_cmap, neg_cmap : names of colormaps or colormap objects
-            The colormapping for the positive and negative overlays.
         alpha : float
             The transparancy of the overlay.
 
@@ -251,6 +256,9 @@ class Mosaic(object):
             vmin = np.percentile(stat_data[fov], vmin_perc)
         if vmax is None:
             vmax = np.percentile(stat_data[fov], vmax_perc)
+        if center:
+            vabs = max(np.abs(vmin), vmax)
+            vmin, vmax = -vabs, vabs
         if thresh is not None:
             stat_data[stat_data < thresh] = np.nan
 
@@ -378,3 +386,11 @@ class Mosaic(object):
                       color="white", size=14, ha="right", va="center")
         self.fig.text(.46, .005 + cbar_height * .5, "%.2g" % -vmin,
                       color="white", size=14, ha="left", va="center")
+
+    def savefig(self, fname, **kwargs):
+        """Save the figure."""
+        self.fig.savefig(fname, facecolor="k", edgecolor="k", **kwargs)
+
+    def close(self):
+        """Close the figure."""
+        plt.close(self.fig)
