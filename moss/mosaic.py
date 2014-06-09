@@ -139,7 +139,7 @@ class Mosaic(object):
     def _plot_anat(self):
         """Plot the anatomy in grayscale."""
         anat_data = self.anat_img.get_data()
-        vmin, vmax = 0, anat_data[self.fov].max() * 1.1
+        vmin, vmax = 0, anat_data[self.fov].max()
         anat_fov = anat_data[self.x_slice, self.y_slice, self.z_slice]
         self._map("imshow", anat_fov, cmap="Greys_r", vmin=vmin, vmax=vmax)
 

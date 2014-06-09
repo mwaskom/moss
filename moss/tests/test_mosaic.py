@@ -52,17 +52,17 @@ class TestMosaic(object):
 
     def test_mosaic_step(self):
 
-        step1 = mosaic.Mosaic(self.anat_img, step=1)
-        step2 = mosaic.Mosaic(self.anat_img, step=2)
+        step1 = mosaic.Mosaic(self.anat_img, n_col=10, step=1)
+        step2 = mosaic.Mosaic(self.anat_img, n_col=10, step=2)
         nt.assert_equal(len(step2.axes.flat) * 2, len(step1.axes.flat))
         plt.close("all")
 
     def test_moasic_tight(self):
 
         mask = (self.anat_data * 0).astype(np.int8)
-        mask[:, :, 40:60] = 1
+        mask[:, :, 40:67] = 1
         slc = mosaic.Mosaic(self.anat_img, mask=mask, step=1, tight=True)
-        nt.assert_equal(len(slc.axes.flat), 20)
+        nt.assert_equal(len(slc.axes.flat), 27)
         plt.close("all")
 
     def test_anat_image_data(self):
