@@ -55,7 +55,9 @@ class Mosaic(object):
             have_orientation = True
         self.anat_img = VolumeImg(anat_img.get_data(),
                                   anat_img.get_affine(),
-                                  "mni").xyz_ordered(resample=True)
+                                  world_space="mni",
+                                  interpolation="nearest",
+                                  ).xyz_ordered(resample=True)
         self.anat_data = self.anat_img.get_data()
         anat_fov = self.anat_img.get_data() > 1e-5
 
@@ -70,7 +72,9 @@ class Mosaic(object):
             stat_data = np.nan_to_num(stat_img.get_data().astype(np.float))
             self.stat_img = VolumeImg(stat_data,
                                       stat_img.get_affine(),
-                                      "mni").xyz_ordered(resample=True)
+                                      world_space="mni",
+                                      interpolation="nearest",
+                                      ).xyz_ordered(resample=True)
 
         # Load and reorient the mask image
         if mask is not None:
@@ -82,7 +86,7 @@ class Mosaic(object):
                 mask_img = mask
             self.mask_img = VolumeImg(mask_img.get_data().astype(bool),
                                       mask_img.get_affine(),
-                                      world_space="mn",
+                                      world_space="mni",
                                       interpolation="nearest",
                                       ).xyz_ordered(resample=True)
             mask_data = self.mask_img.get_data()
