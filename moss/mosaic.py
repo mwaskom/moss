@@ -12,7 +12,7 @@ from .nipy import VolumeImg
 class Mosaic(object):
 
     def __init__(self, anat=None, stat=None, mask=None, n_col=9, step=2,
-                 tight=True):
+                 tight=True, show_mask=True):
         """Plot a mosaic of axial slices through an MRI volume.
 
         Parameters
@@ -37,6 +37,9 @@ class Mosaic(object):
             Take every ``step`` slices along the z axis when plotting.
         tight_z : bool
             If True, only show slices that have voxels inside the mask.
+        show_mask : bool
+            If True, gray-out voxels in the anat image that are outside
+            of the mask image.
 
         """
         # Load and reorient the anatomical image
@@ -56,10 +59,8 @@ class Mosaic(object):
         self.anat_img = VolumeImg(anat_img.get_data(),
                                   anat_img.get_affine(),
                                   world_space="mni",
-                                  interpolation="nearest",
                                   ).xyz_ordered(resample=True)
         self.anat_data = self.anat_img.get_data()
-        anat_fov = self.anat_img.get_data() > 1e-5
 
         # Load and reorient the statistical image
         if stat is not None:
@@ -73,7 +74,6 @@ class Mosaic(object):
             self.stat_img = VolumeImg(stat_data,
                                       stat_img.get_affine(),
                                       world_space="mni",
-                                      interpolation="nearest",
                                       ).xyz_ordered(resample=True)
 
         # Load and reorient the mask image
@@ -92,6 +92,17 @@ class Mosaic(object):
             mask_data = self.mask_img.get_data()
         else:
             mask_data = None
+
+        # Re-mask the anat and stat images
+        # This is only really useful when the image affines had rotations
+        # and thus we needed to interpolate
+        if mask_data is not None:
+            self.anat_img._data[~mask_data] = 0
+            if stat is not None:
+                self.stat_img._data[~mask_data] = 0
+
+        # Find a field of view with nonzero anat voxels
+        anat_fov = self.anat_img.get_data() > 1e-5
 
         # Find a field of view that tries to eliminate empty voxels
         if mask is None or not tight:
@@ -116,7 +127,7 @@ class Mosaic(object):
         # Initialize the figure and plot the contant info
         self._setup_figure()
         self._plot_anat()
-        if mask is not None:
+        if mask is not None and show_mask:
             self._plot_inverse_mask()
 
         # Label the anatomy
