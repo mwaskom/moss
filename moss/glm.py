@@ -479,37 +479,34 @@ class DesignMatrix(object):
         if fname is not None:
             f.savefig(fname)
 
-    def plot_confound_correlation(self, fname=None, legend=True):
+    def plot_confound_correlation(self, fname=None, legend=True, close=False):
         """Plot how correlated the condition and confound regressors are."""
         import seaborn as sns
         corrs = self.design_matrix.corr()
         corrs = corrs.loc[self._confound_names, self._condition_names]
 
         n_bars = len(self._condition_names) * len(self._confound_names)
-        xsize = min(n_bars * .2, 10)
-        figsize = (xsize, 4)
+        ysize = min(n_bars * .2, 10)
+        figsize = (9, ysize)
 
         f, ax = plt.subplots(1, 1, figsize=figsize)
         n_conf = corrs.shape[0]
-        colors = sns.husl_palette(n_conf)
+        colors = sns.husl_palette(len(corrs))
 
         for i, (cond, conf_corrs) in enumerate(corrs.iteritems()):
-            barpos = np.linspace(i, i + 1, n_conf + 1)[:-1]
-            bars = ax.bar(barpos, conf_corrs.abs(), width=1 / n_conf,
-                          color=colors, linewidth=0)
+            barpos = np.linspace(i, i + 1, n_conf + 1)[:-1][::-1]
+            bars = ax.barh(barpos, conf_corrs.abs(), height=1 / n_conf,
+                           color=colors, linewidth=.3, edgecolor="white")
 
-        ax.set_xticks(np.arange(len(self._condition_names)) + 0.5)
-        ax.set_xticklabels(self._condition_names)
-        ax.set_xlim(0, len(self._condition_names))
-        ax.xaxis.grid(False)
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("| correlation |")
+        ax.set_yticks(np.arange(len(self._condition_names)) + 0.5)
+        ax.set_yticklabels(self._condition_names)
+        ax.set_ylim(0, len(self._condition_names))
+        ax.yaxis.grid(False)
 
-        ymin, ymax = ax.get_ylim()
-        ymax = max(.25, ymax)
-        ax.set_ylim(0, ymax)
-        ax.set_ylabel("abs(correlation)")
-
-        for x in range(1, len(self._condition_names)):
-            ax.axvline(x, ls=":", c="#222222", lw=1)
+        for y in range(1, len(self._condition_names)):
+            ax.axhline(y, ls=":", c=".6", lw=1, zorder=0)
 
         if legend:
             ncol = len(self._confound_names) // 15 + 1
@@ -522,21 +519,27 @@ class DesignMatrix(object):
             lgd = []
 
         if fname is not None:
-            f.savefig(fname, bbox_extra_artists=[lgd], bbox_inches="tight")
+            f.savefig(fname, dpi=100,
+                      bbox_extra_artists=[lgd],
+                      bbox_inches="tight")
+        if close:
+            plt.close(f)
 
-    def plot_singular_values(self, fname=None):
+    def plot_singular_values(self, fname=None, close=False):
         """Plot the singular values of the full design matrix."""
         s = self._singular_values
         smat = s * np.eye(len(s))
 
         size = min(.3 * len(s), 8)
-        f, ax = plt.subplots(1, 1, figsize=(size, size))
+        f, ax = plt.subplots(figsize=(size, size))
         ax.matshow(smat, cmap="bone", zorder=2)
         ax.axis("off")
 
         plt.tight_layout()
         if fname is not None:
-            f.savefig(fname)
+            f.savefig(fname, dpi=100)
+        if close:
+            plt.close(f)
 
     def to_csv(self, fname):
         """Save the full design matrix to csv."""
