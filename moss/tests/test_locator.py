@@ -13,7 +13,7 @@ def test_locate_peaks():
         raise SkipTest
 
     challenge = [
-        ([(60, 60, 50)], ("L Cereb WM", 95)),
+        ([(60, 60, 50)], ("L Cereb WM", 100)),
         ([(62, 69, 50)], ("MFG", 20)),
         ([(31, 50, 27)], ("Parahip G, post", 30)),
         ([(26, 55, 27)], ("Temp Fus Ctx, post", 3)),
@@ -22,7 +22,9 @@ def test_locate_peaks():
     for coord, res in challenge:
         res = dict(zip(["MaxProb Region", "Prob"], list(res)))
         res = pd.DataFrame(res, index=[0])
-        yield assert_equal, np.array(res), np.array(locator.locate_peaks(coord))
+        out = np.array(locator.locate_peaks(coord))
+        out[0, -1] = int(out[0, -1])
+        yield assert_equal, np.array(res), out
 
 
 def test_shorten_name():
