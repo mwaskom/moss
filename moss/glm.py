@@ -446,17 +446,19 @@ class DesignMatrix(object):
             vector[self.design_matrix.columns == name] = weight
         return vector
 
-    def plot(self, kind="full", fname=None, cmap="bone"):
+    def plot(self, kind="full", fname=None, cmap="bone", close=False):
         """Draw an image representation of the design matrix.
 
         Parameters
         ----------
         kind : string
-            which submatrix to plot, or "full" for the whole matrix
+            Which submatrix to plot, or "full" for the whole matrix.
         fname : string, optional
-            if provided, save the plot to this file name
+            If provided, save the plot to this file name.
         cmap : string or colormap object
-            colormap for the plot
+            Colormap for the plot.
+        close: bool
+            If True, close the figure after plotting.
 
         """
         names = getattr(self, "_%s_names" % kind)
@@ -478,6 +480,8 @@ class DesignMatrix(object):
 
         if fname is not None:
             f.savefig(fname)
+        if close:
+            plt.close(f)
 
     def plot_confound_correlation(self, fname=None, legend=True, close=False):
         """Plot how correlated the condition and confound regressors are."""
