@@ -143,7 +143,17 @@ class TestMosaic(object):
 
     def test_cubehelix_overlap(self):
 
-        slc = mosaic.Mosaic(self.anat_img, self.mask_img)
+        slc = mosaic.Mosaic(self.anat_img, self.stat_img)
         slc.plot_overlay("cube:0:.5", 0)
         slc.plot_overlay("cube:1.5:-1.5", 0)
         slc.plot_overlay("cube:2:-1_r", 0)
+
+    def test_colormap_text(self):
+
+        slc = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc.plot_overlay("Purples", 0, 10.5, fmt="%.1f")
+        nt.assert_equal(slc.fig.texts[-1].get_text(), "10.5")
+
+        slc = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc.plot_overlay("Purples", 0, 10.5, fmt="%d")
+        nt.assert_equal(slc.fig.texts[-1].get_text(), "10")

@@ -20,7 +20,7 @@ class Mosaic(object):
         anat : filename, nibabel image, or array
             The anatomical image that will form the background of the mosaic.
             If only an array is passed, an identity matrix will be used as
-            the affine and orientation could be incorrect. If absent, try 
+            the affine and orientation could be incorrect. If absent, try
             to find the FSL data and uses the MNI152 brain.
         stat : filename, nibabel image, or array
             A statistical map to plot as an overlay (which happens by calling
@@ -181,7 +181,8 @@ class Mosaic(object):
             func(np.rot90(slice), **kwargs)
 
     def plot_activation(self, thresh=2, vmin=None, vmax=None, vmax_perc=99,
-                        vfloor=None, pos_cmap="Reds_r", neg_cmap=None, alpha=1):
+                        vfloor=None, pos_cmap="Reds_r", neg_cmap=None,
+                        alpha=1, fmt="%.2g"):
         """Plot the stat image as uni- or bi-polar activation with a threshold.
 
         Parameters
@@ -197,12 +198,14 @@ class Mosaic(object):
             at which to saturate the colormap by default. Overriden if a there
             is a specific value passed for vmax.
         vfloor : float or None
-            If not None, this sets the vmax value, if the value at the provided 
+            If not None, this sets the vmax value, if the value at the provided
             vmax_perc does not exceed it.
         pos_cmap, neg_cmap : names of colormaps or colormap objects
             The colormapping for the positive and negative overlays.
         alpha : float
             The transparancy of the overlay.
+        fmt : %-style format string
+            Format of the colormap annotation
 
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
@@ -231,12 +234,13 @@ class Mosaic(object):
             self._map("imshow", neg_data, cmap=neg_cmap,
                       vmin=nvmin, vmax=nvmax, alpha=alpha)
 
-            self._add_double_colorbar(vmin, vmax, pos_cmap, neg_cmap)
+            self._add_double_colorbar(vmin, vmax, pos_cmap, neg_cmap, fmt)
         else:
-            self._add_single_colorbar(vmin, vmax, pos_cmap)
+            self._add_single_colorbar(vmin, vmax, pos_cmap, fmt)
 
     def plot_overlay(self, cmap, vmin=None, vmax=None, center=False,
-                     vmin_perc=1, vmax_perc=99, thresh=None, alpha=1):
+                     vmin_perc=1, vmax_perc=99, thresh=None,
+                     alpha=1, fmt="%.2g"):
         """Plot the stat image as a single overlay with a threshold.
 
         Parameters
@@ -259,6 +263,8 @@ class Mosaic(object):
             between -thresh and thresh.
         alpha : float
             The transparancy of the overlay.
+        fmt : %-style format string
+            Format of the colormap annotation
 
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
@@ -288,7 +294,7 @@ class Mosaic(object):
         self._map("imshow", stat_data, cmap=cmap,
                   vmin=vmin, vmax=vmax, alpha=alpha)
 
-        self._add_single_colorbar(vmin, vmax, cmap)
+        self._add_single_colorbar(vmin, vmax, cmap, fmt)
 
     def plot_mask(self, color="#3cb371", alpha=.66):
         """Plot the statistical volume as a binary mask."""
@@ -364,7 +370,7 @@ class Mosaic(object):
 
         return cbar_height
 
-    def _add_single_colorbar(self, vmin, vmax, cmap):
+    def _add_single_colorbar(self, vmin, vmax, cmap, fmt):
         """Add colorbars for a single overlay."""
         cbar_height = self._pad_for_cbar()
         cbar_ax = self.fig.add_axes([.3, .01, .4, cbar_height - .01])
@@ -375,12 +381,12 @@ class Mosaic(object):
         bar_data = np.linspace(0, 1, 256).reshape(1, 256)
         cbar_ax.pcolormesh(bar_data, cmap=cmap)
 
-        self.fig.text(.29, .005 + cbar_height * .5, "%.2g" % vmin,
+        self.fig.text(.29, .005 + cbar_height * .5, fmt % vmin,
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.71, .005 + cbar_height * .5, "%.2g" % vmax,
+        self.fig.text(.71, .005 + cbar_height * .5, fmt % vmax,
                       color="white", size=14, ha="left", va="center")
 
-    def _add_double_colorbar(self, vmin, vmax, pos_cmap, neg_cmap):
+    def _add_double_colorbar(self, vmin, vmax, pos_cmap, neg_cmap, fmt):
         """Add colorbars for a positive and a negative overlay."""
         cbar_height = self._pad_for_cbar()
 
@@ -398,14 +404,14 @@ class Mosaic(object):
         pos_ax.pcolormesh(bar_data, cmap=pos_cmap)
         neg_ax.pcolormesh(bar_data, cmap=neg_cmap)
 
-        self.fig.text(.54, .005 + cbar_height * .5, "%.2g" % vmin,
+        self.fig.text(.54, .005 + cbar_height * .5, fmt % vmin,
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.86, .005 + cbar_height * .5, "%.2g" % vmax,
+        self.fig.text(.86, .005 + cbar_height * .5, fmt % vmax,
                       color="white", size=14, ha="left", va="center")
 
-        self.fig.text(.14, .005 + cbar_height * .5, "%.2g" % -vmax,
+        self.fig.text(.14, .005 + cbar_height * .5, fmt % -vmax,
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.46, .005 + cbar_height * .5, "%.2g" % -vmin,
+        self.fig.text(.46, .005 + cbar_height * .5, fmt % -vmin,
                       color="white", size=14, ha="left", va="center")
 
     def _get_cmap(self, cmap):
