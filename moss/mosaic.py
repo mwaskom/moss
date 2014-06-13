@@ -216,6 +216,8 @@ class Mosaic(object):
             calc_data = stat_data[np.abs(stat_data) > thresh]
             vmax = np.percentile(np.abs(calc_data), vmax_perc)
 
+        pos_cmap = self._get_cmap(pos_cmap)
+
         self._map("imshow", pos_data, cmap=pos_cmap,
                   vmin=vmin, vmax=vmax, alpha=alpha)
 
@@ -223,6 +225,8 @@ class Mosaic(object):
             thresh, nvmin, nvmax = -thresh, -vmax, -vmin
             neg_data = stat_data.copy()
             neg_data[neg_data > thresh] = np.nan
+
+            neg_cmap = self._get_cmap(neg_cmap)
 
             self._map("imshow", neg_data, cmap=neg_cmap,
                       vmin=nvmin, vmax=nvmax, alpha=alpha)
@@ -278,6 +282,8 @@ class Mosaic(object):
             stat_data[stat_data < thresh] = np.nan
 
         stat_data[~fov] = np.nan
+
+        cmap = self._get_cmap(cmap)
 
         self._map("imshow", stat_data, cmap=cmap,
                   vmin=vmin, vmax=vmax, alpha=alpha)
@@ -401,6 +407,25 @@ class Mosaic(object):
                       color="white", size=14, ha="right", va="center")
         self.fig.text(.46, .005 + cbar_height * .5, "%.2g" % -vmin,
                       color="white", size=14, ha="left", va="center")
+
+    def _get_cmap(self, cmap):
+        """Parse a string spec of a cubehelix palette."""
+        from seaborn import cubehelix_palette
+        if isinstance(cmap, string_types):
+            if cmap.startswith("cube"):
+                if cmap.endswith("_r"):
+                    reverse = False
+                    cmap = cmap[:-2]
+                else:
+                    reverse = True
+                _, start, rot = cmap.split(":")
+                cmap = cubehelix_palette(as_cmap=True,
+                                         start=float(start),
+                                         rot=float(rot),
+                                         light=.95,
+                                         dark=0,
+                                         reverse=reverse)
+        return cmap
 
     def savefig(self, fname, **kwargs):
         """Save the figure."""

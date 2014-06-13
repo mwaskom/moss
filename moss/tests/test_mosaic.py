@@ -140,3 +140,10 @@ class TestMosaic(object):
         overlay_vals = np.unique(np.nan_to_num(overlay_data))
         npt.assert_array_equal(overlay_vals, [0, 1])
         plt.close("all")
+
+    def test_cubehelix_overlap(self):
+
+        slc = mosaic.Mosaic(self.anat_img, self.mask_img)
+        slc.plot_overlay("cube:0:.5", 0)
+        slc.plot_overlay("cube:1.5:-1.5", 0)
+        slc.plot_overlay("cube:2:-1_r", 0)
