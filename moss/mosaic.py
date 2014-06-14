@@ -12,7 +12,7 @@ from .nipy import VolumeImg
 class Mosaic(object):
 
     def __init__(self, anat=None, stat=None, mask=None, n_col=9, step=2,
-                 tight=True, show_mask=True):
+                 tight=True, show_mask=True, stat_interp="continuous"):
         """Plot a mosaic of axial slices through an MRI volume.
 
         Parameters
@@ -40,6 +40,9 @@ class Mosaic(object):
         show_mask : bool
             If True, gray-out voxels in the anat image that are outside
             of the mask image.
+        stat_interp : continuous | nearest
+            The kind of interpolation to perform (if necessary) when
+            reorienting the statistical image.
 
         """
         # Load and reorient the anatomical image
@@ -74,6 +77,7 @@ class Mosaic(object):
             self.stat_img = VolumeImg(stat_data,
                                       stat_img.get_affine(),
                                       world_space="mni",
+                                      interpolation=stat_interp,
                                       ).xyz_ordered(resample=True)
 
         # Load and reorient the mask image
@@ -326,6 +330,26 @@ class Mosaic(object):
                            vmin=vmin, vmax=vmax, linewidths=linewidths)
             except ValueError:
                 pass
+
+    def plot_mask_edges(self, palette="husl", linewidths=.75):
+        """Plot the edges of possibly multiple masks to show overlap."""
+        from seaborn import color_palette
+        n_masks = self.stat_img._data.shape[-1]
+        cmap = mpl.colors.ListedColormap(color_palette(palette, n_masks))
+
+        for mask_num in range(n_masks):
+            slices = self.stat_img.get_data()[self.x_slice,
+                                              self.y_slice,
+                                              self.z_slice,
+                                              mask_num].transpose(2, 0, 1)
+
+            for slice, ax in zip(slices, self.axes.flat):
+                if slice.any():
+                    ax.contour(np.rot90(slice * (mask_num + 1)), n_masks,
+                               cmap=cmap, vmin=1, vmax=n_masks,
+                               linewidths=linewidths)
+
+        self._add_single_colorbar(1, n_masks, cmap, "%d")
 
     def map(self, func_name, data, thresh=None, **kwargs):
         """Map a dataset across the mosaic of axes.
