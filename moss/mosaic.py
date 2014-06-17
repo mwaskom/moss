@@ -244,7 +244,7 @@ class Mosaic(object):
 
     def plot_overlay(self, cmap, vmin=None, vmax=None, center=False,
                      vmin_perc=1, vmax_perc=99, thresh=None,
-                     alpha=1, fmt="%.2g"):
+                     alpha=1, fmt="%.2g", colorbar=True):
         """Plot the stat image as a single overlay with a threshold.
 
         Parameters
@@ -269,6 +269,8 @@ class Mosaic(object):
             The transparancy of the overlay.
         fmt : %-style format string
             Format of the colormap annotation
+        colorbar : bool
+            If true, add a colorbar.
 
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
@@ -298,7 +300,8 @@ class Mosaic(object):
         self._map("imshow", stat_data, cmap=cmap,
                   vmin=vmin, vmax=vmax, alpha=alpha)
 
-        self._add_single_colorbar(vmin, vmax, cmap, fmt)
+        if colorbar:
+            self._add_single_colorbar(vmin, vmax, cmap, fmt)
 
     def plot_mask(self, color="#3cb371", alpha=.66):
         """Plot the statistical volume as a binary mask."""
