@@ -31,7 +31,7 @@ if __name__ == "__main__":
         version=VERSION,
         URL=URL,
         download_url=DOWNLOAD_URL,
-        packages=['moss', 'moss.tests'],
+        packages=['moss', 'moss.tests', 'moss.nipy'],
         scripts=["bin/" + s for s in ["check_mni_reg", "recon_movie",
                                       "recon_status", "recon_qc",
                                       "recon_process_stats", "ts_movie"]],
