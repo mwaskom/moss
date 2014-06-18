@@ -18,10 +18,38 @@ VERSION = '0.3'
 
 from setuptools import setup
 
+def check_dependencies():
+
+    # Just make sure dependencies exist, I haven't rigorously
+    # tested what the minimal versions that will work are
+    needed_deps = ["IPython", "numpy", "scipy", "matplotlib",
+                   "sklearn", "pandas", "statsmodels", "patsy",
+                   "six", "seaborn"]
+    missing_deps = []
+    for dep in needed_deps:
+        try:
+            __import__(dep)
+        except ImportError:
+            missing_deps.append(dep)
+
+    if missing_deps:
+        missing = (", ".join(missing_deps)
+                   .replace("sklearn", "scikit-learn")
+                   .replace("skimage", "scikit-image"))
+        raise ImportError("Missing dependencies: %s" % missing)
+
 
 if __name__ == "__main__":
     if os.path.exists('MANIFEST'):
         os.remove('MANIFEST')
+
+    import sys
+    if not (len(sys.argv) >= 2 and ('--help' in sys.argv[1:] or
+            sys.argv[1] in ('--help-commands',
+                            '--version',
+                            'egg_info',
+                            'clean'))):
+        check_dependencies()
 
     setup(name=DISTNAME,
         maintainer=MAINTAINER,
@@ -42,5 +70,4 @@ if __name__ == "__main__":
                      'Operating System :: POSIX',
                      'Operating System :: Unix',
                      'Operating System :: MacOS'],
-        install_requires=["patsy", "pandas", "statsmodels", "scikit-learn", "six"],
     )
