@@ -73,6 +73,8 @@ class TestMosaic(object):
                                    self.anat_img.get_affine())
         m2 = mosaic.Mosaic(full_img)
         nt.assert_equal(m1.axes.shape, m2.axes.shape)
+        nt.assert_equal(m2.axes.flat[0].images[0].get_array().T.shape,
+                        self.anat_data.shape[:-1])
 
     def test_anat_image_data(self):
 
