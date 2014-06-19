@@ -65,6 +65,15 @@ class TestMosaic(object):
         nt.assert_equal(len(slc.axes.flat), 27)
         plt.close("all")
 
+    def test_mosaic_full_anat(self):
+
+        m1 = mosaic.Mosaic(self.anat_img, tight=False)
+
+        full_img = nib.Nifti1Image(np.ones_like(self.anat_data),
+                                   self.anat_img.get_affine())
+        m2 = mosaic.Mosaic(full_img)
+        nt.assert_equal(m1.axes.shape, m2.axes.shape)
+
     def test_anat_image_data(self):
 
         slc = mosaic.Mosaic(self.anat_img)

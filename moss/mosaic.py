@@ -124,9 +124,11 @@ class Mosaic(object):
         self.start = start = np.argwhere(fov_slices).min()
         self.z_slice = slice(start, None, step)
         mask_x = np.argwhere(fov.any(axis=(1, 2)))
-        self.x_slice = slice(mask_x.min() - 1, mask_x.max() + 1)
+        self.x_slice = slice(max(mask_x.min() - 1, 0),
+                             min(mask_x.max() + 1, len(mask_x) - 1))
         mask_y = np.argwhere(fov.any(axis=(0, 2)))
-        self.y_slice = slice(mask_y.min() - 1, mask_y.max() + 1)
+        self.y_slice = slice(max(mask_y.min() - 1, 0),
+                             min(mask_y.max() + 1, len(mask_y) - 1))
 
         # Initialize the figure and plot the contant info
         self._setup_figure()
