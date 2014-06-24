@@ -221,7 +221,10 @@ class Mosaic(object):
             vmin = thresh
         if vmax is None:
             calc_data = stat_data[np.abs(stat_data) > thresh]
-            vmax = np.percentile(np.abs(calc_data), vmax_perc)
+            if stat_data.any():
+                vmax = np.percentile(np.abs(calc_data), vmax_perc)
+            else:
+                vmax = vmin * 2
 
         pos_cmap = self._get_cmap(pos_cmap)
 
@@ -286,7 +289,10 @@ class Mosaic(object):
         if vmin is None:
             vmin = np.percentile(stat_data[fov], vmin_perc)
         if vmax is None:
-            vmax = np.percentile(stat_data[fov], vmax_perc)
+            if stat_data.any():
+                vmax = np.percentile(stat_data[fov], vmax_perc)
+            else:
+                vmax = vmin * 2
         if center:
             vabs = max(np.abs(vmin), vmax)
             vmin, vmax = -vabs, vabs

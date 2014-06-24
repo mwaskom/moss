@@ -152,7 +152,13 @@ class TestMosaic(object):
         npt.assert_array_equal(overlay_vals, [0, 1])
         plt.close("all")
 
-    def test_cubehelix_overlap(self):
+    def test_empty_overlay(self):
+
+        slc = mosaic.Mosaic(self.anat_img, np.zeros_like(self.stat_data))
+        slc.plot_activation(2)
+        slc.plot_overlay("coolwarm")
+
+    def test_cubehelix_overlay(self):
 
         slc = mosaic.Mosaic(self.anat_img, self.stat_img)
         slc.plot_overlay("cube:0:.5", 0)
