@@ -101,9 +101,14 @@ class Mosaic(object):
         # This is only really useful when the image affines had rotations
         # and thus we needed to interpolate
         if mask_data is not None:
-            self.anat_img._data[~mask_data] = 0
             if stat is not None:
                 self.stat_img._data[~mask_data] = 0
+
+            # Use an implicit/explicit mask to zero out very dim voxels
+            # This helps deal with the interpolation error for non-MNI
+            # data which otherwise causes a weird ring around the brain
+            thresh = np.percentile(self.anat_data[mask_data], 98) * .05
+            self.anat_img._data[self.anat_data < thresh] = 0
 
         # Find a field of view with nonzero anat voxels
         anat_fov = self.anat_img.get_data() > 1e-5
