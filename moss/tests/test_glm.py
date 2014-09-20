@@ -296,12 +296,12 @@ def test_design_matrix_confound_pca():
     design = pd.DataFrame(dict(condition=["one", "two"], onset=[5, 10]))
     confounds = rs.randn(20, 5)
     confounds[:, 0] = confounds[:, 1] + rs.randn(20)
-    pca = PCA(.99).fit(confounds)
+    transformed_confounds = PCA(.99).fit_transform(confounds)
     X = glm.DesignMatrix(design, hrf, 20,
                          confounds=confounds,
                          confound_pca=True)
     n_confounds = X.confound_submatrix.shape[1]
-    nt.assert_equal(n_confounds, pca.n_components)
+    nt.assert_equal(n_confounds, transformed_confounds.shape[1])
 
     pca_all = PCA().fit(confounds)
     good_dims = np.sum(pca_all.explained_variance_ratio_ > .01)
