@@ -136,7 +136,7 @@ def test_bootstrap_units():
 @raises(ValueError)
 def test_bootstrap_arglength():
     """Test that different length args raise ValueError."""
-    stat.bootstrap(range(5), range(10))
+    stat.bootstrap(np.arange(5), np.arange(10))
 
 
 @raises(TypeError)

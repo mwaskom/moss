@@ -40,7 +40,7 @@ def bootstrap(*args, **kwargs):
 
     """
     # Ensure list of arrays are same length
-    if len(np.unique(map(len, args))) > 1:
+    if len(np.unique(list(map(len, args)))) > 1:
         raise ValueError("All input arrays must have the same length")
     n = len(args[0])
 
@@ -215,7 +215,7 @@ def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
         if return_dist is True, the null distribution of t statistics
 
     """
-    a = np.asarray(a)
+    a = np.asarray(a, np.float)
     if a.ndim < 2:
         a = a.reshape(-1, 1)
     n_samp, n_test = a.shape
