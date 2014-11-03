@@ -13,7 +13,7 @@ def test_locate_peaks():
         raise SkipTest
 
     challenge = [
-        ([(60, 60, 50)], ("L Cereb WM", 95)),
+        ([(60, 60, 50)], ("L Cereb WM", 100)),
         ([(62, 69, 50)], ("MFG", 20)),
         ([(31, 50, 27)], ("Parahip G, post", 30)),
         ([(26, 55, 27)], ("Temp Fus Ctx, post", 3)),

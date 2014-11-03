@@ -461,8 +461,8 @@ def test_transition_probabilities():
     a = rs.rand(100) < .5
     a = np.where(a, "foo", "bar")
     out = stat.transition_probabilities(a)
-    npt.assert_equal(out.columns.tolist(), ["bar", "foo"])
-    npt.assert_equal(out.columns, out.index)
+    npt.assert_array_equal(out.columns.tolist(), ["bar", "foo"])
+    npt.assert_array_equal(out.columns, out.index)
 
 
 def test_gamma_hrf_fit_direct():
