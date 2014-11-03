@@ -10,7 +10,7 @@ install:
   - conda update conda --yes
   - conda create -n testenv --yes pip python=$TRAVIS_PYTHON_VERSION
   - source activate testenv
-  - conda install --yes ipython numpy scipy nose matplotlib pandas statsmodels scikit-learn=0.14 six
+  - conda install --yes ipython numpy scipy nose matplotlib pandas statsmodels scikit-learn six
   - pip install seaborn
   - pip install nibabel
   - pip install .
