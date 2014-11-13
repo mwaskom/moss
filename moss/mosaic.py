@@ -226,7 +226,7 @@ class Mosaic(object):
             vmin = thresh
         if vmax is None:
             calc_data = stat_data[np.abs(stat_data) > thresh]
-            if stat_data.any():
+            if calc_data.any():
                 vmax = np.percentile(np.abs(calc_data), vmax_perc)
             else:
                 vmax = vmin * 2
