@@ -12,7 +12,7 @@ from .. import mosaic
 
 class TestMosaic(object):
 
-    if not "FSLDIR" in os.environ:
+    if "FSLDIR" not in os.environ:
         raise nose.SkipTest
 
     anat_file = os.path.join(os.environ["FSLDIR"],
@@ -114,12 +114,22 @@ class TestMosaic(object):
                                           ax2.images[1].get_array().data)
         plt.close("all")
 
+    def test_subthresh_statistical_overlay(self):
+
+        slc = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc.plot_activation(thresh=100)
+
+        for ax in slc.axes.flat:
+            assert np.isnan(ax.images[1].get_array().data).all()
+
+        plt.close("all")
+
     def test_bipolar_overlays(self):
 
         slc = mosaic.Mosaic(self.anat_img, self.stat_img)
 
         slc.plot_activation(thresh=1, vmin=.5, vmax=1.5,
-                           neg_cmap="Blues",  alpha=.9)
+                            neg_cmap="Blues",  alpha=.9)
 
         ax = slc.axes.flat[10]
         nt.assert_equal(len(ax.images), 3)
