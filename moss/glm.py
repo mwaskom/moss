@@ -13,9 +13,16 @@ class HRFModel(object):
     def __init__(self):
         raise NotImplementedError
 
+    def _default_frametimes(self, ntp):
+        """Generate an array of frametimes based on HRF properties."""
+        orig_ntp = ntp / self._oversampling
+        frametimes = np.arange(0, orig_ntp * self._tr,
+                               self._tr / self._oversampling)
+        return frametimes
+
     @property
     def kernel(self):
-        """Evaluate the kernal at timepoints."""
+        """Evaluate the kernel at timepoints."""
         raise NotImplementedError
 
     def convolve(self, data):
@@ -68,26 +75,24 @@ class GammaDifferenceHRF(HRFModel):
         Parameters
         ----------
         data : Series or 1d array
-            data to convolve
+            Data to convolve.
         frametimes : Series or 1d array, optional
-            timepoints corresponding to data - if None, assume
-            data is sampled with same TR and oversampling as kernal
+            Timepoints corresponding to data - if None, assume
+            data is sampled with same TR and oversampling as kernel.
         name : string
-            name to associate with data if not passing Series object
+            Name to associate with data if not passing Series object.
 
         Returns
         -------
         out : DataFrame
-            n_cols depends on whether kernel has temporal derivative
+            n_cols depends on whether kernel has temporal derivative.
 
         """
         ntp = len(data)
 
         # Without frametimes, assume data and kernel have same sampling
         if frametimes is None:
-            orig_ntp = ntp / self._oversampling
-            frametimes = np.arange(0, orig_ntp * self._tr,
-                                   self._tr / self._oversampling)
+            frametimes = self._default_frametimes(ntp)
 
         # Get the output name for this condition
         if name is None:
@@ -117,9 +122,70 @@ class GammaDifferenceHRF(HRFModel):
 
 class FIR(HRFModel):
     """Finite Impule Response HRF model."""
-    def __init__(self):
+    def __init__(self, tr=2, nbasis=12, offset=0):
+        """Create the HRF object.
 
-        return NotImplementedError
+        tr : float
+            Time resolution the data are sampled at.
+        nbasis : int
+            Number of basis functions (resulting array will be ntp x nbasis).
+        offset: float
+            Time (in tr units) of the first basis function relative to the
+            event onset in the input data.
+        """
+        self._tr = tr
+        self._nbasis = nbasis
+        self._offset = offset
+        self._oversampling = 1
+
+    def convolve(self, data, frametimes=None, name=None):
+        """'Convolve' the kernel with some data.
+
+        Parameters
+        ----------
+        data : Series or 1d array
+            Data to 'convolve'.
+        frametimes : Series or 1d array, optional
+            Timepoints corresponding to data - if None, assume
+            data is sampled with same TR and oversampling as kernel.
+        name : string
+            Name to associate with data if not passing Series object.
+
+        Returns
+        -------
+        out : DataFrame
+            Shape of output is len(data) x nbasis.
+
+        """
+        ntp = len(data)
+
+        # Without frametimes, assume data and kernel have same sampling
+        if frametimes is None:
+            frametimes = self._default_frametimes(ntp)
+
+        # Get the basis times
+        tr, offset, nbasis = self._tr, self._offset, self._nbasis
+        basis_points = np.arange(offset, offset + nbasis)
+
+        # Get the output names for this condition
+        if name is None:
+            try:
+                name = data.name
+            except AttributeError:
+                name = "event"
+
+        cols = ["{}_{:02d}".format(name, p) for p in range(nbasis)]
+
+        # Pad the data array to avoid rollover
+        data = np.concatenate([np.zeros(nbasis), data, np.zeros(nbasis)])
+
+        # Build the matrix of delta functions
+        out = pd.DataFrame(0, index=frametimes, columns=cols, dtype=np.float)
+        for point, name in zip(basis_points, cols):
+            rolled_data = np.roll(data, point)
+            out.loc[:, name] = rolled_data[nbasis:-nbasis]
+
+        return out
 
 
 class DesignMatrix(object):
@@ -139,17 +205,17 @@ class DesignMatrix(object):
     matrix, this object also exposes views on some subsets of the data:
 
     - main_submatrix
-        the condition evs that are created from the experimental design
-        along with any continuous regressors or interest. if the HRF
+        The condition evs that are created from the experimental design
+        along with any continuous regressors or interest. If the HRF
         model includes a temporal derivative, those columns are not
-        included in this submatrix
+        included in this submatrix.
     - condition_submatrix
-        only the condition ev columns
+        Only the condition ev columns.
     - confound_submatrix
-        the continuous evs considered representing nuisance variables
+        The continuous evs considered representing nuisance variables.
     - artifact_submatrix
-        the set of indicator vectors used to censor individual frames
-        from the model
+        The set of indicator vectors used to censor individual frames
+        from the model.
 
     In the case where one of these components does not exist in the
     matrix (e.g., no frames had artifacts), these attributes are `None`.
@@ -164,46 +230,46 @@ class DesignMatrix(object):
         Parameters
         ----------
         design : DataFrame
-            at a minimum, this dataframe must have `condition` and `onset`
+            At a minimum, this dataframe must have `condition` and `onset`
             columns. the `duration` and `value` (aka amplitude) of each element
             can also be specified, with a default duration of 0 (i.e. an
-            impulse) and value of 1. onset and duration are specified in
-            seconds. if a value is not fiven for `condition names`, the
+            impulse) and value of 1. The `onset` and `duration` are specified
+            in seconds. If a value is not fiven for `condition names`, the
             resulting design is formed from the sorted unique value in the
             condition column.
         hrf_model : HRFModel class
-            this class must specify its own "convolution" semantics
+            This class must specify its own "convolution" semantics.
         ntp : int
-            number of timepoints in the data
+            Number of timepoints in the data.
         regressors : array or DataFrame
-            other regressors of interest (e.g. timecourse of data from some
-            seed ROI). if a DataFrame, index must have the frametimes and
-            match those inferred from the `ntp` and `tr` arguments. the
+            Other regressors of interest (e.g. timecourse of data from some
+            seed ROI). If a DataFrame, index must have the frametimes and
+            match those inferred from the `ntp` and `tr` arguments. The
             columns are de-meaned, but not filtered or otherwise transformed.
         confounds : array or DataFrame
-            similar to `regressors`, but considered to be of no interest
+            Similar to `regressors`, but considered to be of no interest
             (e.g., motion parameters).
         artifacts : boolean(esque) array with length equal to `ntp`
-            a mask indicating frames that have some kind of artifact. this
+            A mask indicating frames that have some kind of artifact. This
             information is transformed into a set of indicator vectors.
         condition_names : list of string
-            a subset of the names that can be found in the `condition`
-            column of the design dataframe. can be used to exclude conditions
+            A subset of the names that can be found in the `condition`
+            column of the design dataframe. Can be used to exclude conditions
             from a particualr design or reorder the columns in the resulting
             matrix.
         confound_pca : bool
-            if True, transform the confound matrix with PCA (using a maximum
-            likelihood method to guess the dimensionality of the data)
+            If True, transform the confound matrix with PCA (using a maximum
+            likelihood method to guess the dimensionality of the data).
         tr : float
-            sampling interval (in seconds) of the data/design
+            Sampling interval (in seconds) of the data/design.
         hpf_cutoff : float
-            filter cutoff (in seconds), or None to skip the filter
+            Filter cutoff (in seconds), or None to skip the filter.
         hpf_kernel : ntp x ntp array
-            precomputed matrix to implement the highpass filter; overrides the
+            Precomputed matrix to implement the highpass filter; overrides the
             hpf_cutoff (i.e. it is not checked if they match).
         oversampling : float
-            construction of the condition evs and convolution
-            are performed on high-resolution data with this oversampling
+            Construction of the condition evs and convolution
+            are performed on high-resolution data with this oversampling.
 
         """
         self.tr = tr
@@ -382,7 +448,7 @@ class DesignMatrix(object):
 
     def _convolve(self, hrf_model):
         """Convolve the condition evs with the HRF model."""
-        self._hires_conditions = self._hires_base.copy()
+        self._hires_conditions = pd.DataFrame(index=self._hires_base.index)
         for cond in self._condition_names:
             res = hrf_model.convolve(self._hires_base[cond],
                                      self._hires_frametimes,

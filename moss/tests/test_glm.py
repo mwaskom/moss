@@ -117,6 +117,80 @@ def test_hrf_names():
     nt.assert_equal(conv4.columns.tolist(), ["donna", "donna_deriv"])
 
 
+def test_fir_convolution():
+
+    data = np.zeros(144)
+    data[::12] = 1
+
+    fir = glm.FIR()
+    conv = fir.convolve(data)
+
+    nt.assert_equal(conv.shape, (144, 12))
+    npt.assert_array_equal(conv.sum(axis=1), np.ones(144))
+    npt.assert_array_equal(conv.values,
+                           np.vstack([np.eye(12) for _ in range(12)]))
+
+
+def test_fir_nbasis():
+
+    data = np.zeros(100)
+    data[::12] = 1
+
+    fir1 = glm.FIR(nbasis=10)
+    conv1 = fir1.convolve(data)
+    nt.assert_equal(conv1.shape, (100, 10))
+
+    fir2 = glm.FIR(nbasis=15)
+    conv2 = fir2.convolve(data)
+    nt.assert_equal(conv2.shape, (100, 15))
+
+
+def test_fir_names():
+
+    data = np.zeros(100)
+    data[::12] = 1
+
+    fir1 = glm.FIR()
+    conv1 = fir1.convolve(data)
+    npt.assert_array_equal(conv1.columns,
+                           ["event_{:02d}".format(i) for i in range(12)])
+
+    fir2 = glm.FIR()
+    conv2 = fir2.convolve(data, name="donna")
+    npt.assert_array_equal(conv2.columns,
+                           ["donna_{:02d}".format(i) for i in range(12)])
+
+
+def test_fir_offset():
+
+    data = np.zeros(100)
+    data[::12] = 1
+
+    fir1 = glm.FIR(offset=-1)
+    conv1 = fir1.convolve(data)
+    npt.assert_array_equal(conv1.values[:11], np.eye(12)[1:])
+    npt.assert_array_equal(conv1.values[11], np.eye(12)[0])
+
+    fir2 = glm.FIR(offset=1)
+    conv2 = fir2.convolve(data)
+    npt.assert_array_equal(conv2.values[1:13], np.eye(12))
+    npt.assert_array_equal(conv2.values[0], np.zeros(12))
+
+
+def test_fir_frametimes():
+
+    data = np.zeros(100)
+    data[::12] = 1
+
+    fir1 = glm.FIR()
+    conv1 = fir1.convolve(data)
+    npt.assert_array_equal(conv1.index, np.arange(0, 100 * 2, 2))
+
+    fir2 = glm.FIR(tr=1)
+    conv2 = fir2.convolve(data)
+    npt.assert_array_equal(conv2.index, np.arange(0, 100))
+
+
 def test_identity_hrf():
     """Test the identity HRF model."""
     data = rs.randn(20)
@@ -322,6 +396,7 @@ def test_design_matrix_precomputed_kernel():
 
     npt.assert_array_equal(X_1.design_matrix, X_2.design_matrix)
 
+
 def test_design_matrix_only_regressors():
     """Test that the design component of the matrix is optional."""
     regressors = rs.randn(20, 2)
@@ -329,12 +404,29 @@ def test_design_matrix_only_regressors():
     npt.assert_array_equal(design.design_matrix.columns,
                            ["regressor_0", "regressor_1"])
 
+
 def test_design_matrix_only_confounds():
     """Test that the design component of the matrix is optional."""
     confounds = rs.randn(20, 2)
     design = glm.DesignMatrix(confounds=confounds)
     npt.assert_array_equal(design.design_matrix.columns,
                            ["confound_0", "confound_1"])
+
+
+def test_design_matrix_with_fir():
+
+    design = pd.DataFrame(dict(onset=np.arange(0, 100, 10),
+                               condition=["event"] * 10))
+
+    X1 = glm.DesignMatrix(design, glm.FIR(tr=1, offset=0), ntp=100,
+                          tr=1, oversampling=1)
+    nt.assert_equal(X1.shape, (100, 12))
+
+    design["condition"] = np.tile(["event", "other_event"], 5)    
+    X2 = glm.DesignMatrix(design, glm.FIR(tr=1, offset=0), ntp=100,
+                          tr=1, oversampling=1)
+    nt.assert_equal(X2.shape, (100, 24))
+    
 
 def test_highpass_matrix_shape():
     """Test the filter matrix is the right shape."""
