@@ -131,6 +131,18 @@ def test_fir_convolution():
                            np.vstack([np.eye(12) for _ in range(12)]))
 
 
+def test_fir_parametric():
+
+    data = np.zeros(144)
+    values = rs.rand(12)
+    data[::12] = values
+
+    fir = glm.FIR()
+    conv = fir.convolve(data)
+
+    npt.assert_array_equal(conv.sum(axis=1), np.repeat(values, 12))
+
+
 def test_fir_nbasis():
 
     data = np.zeros(100)
