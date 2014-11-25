@@ -465,6 +465,19 @@ def test_transition_probabilities():
     npt.assert_array_equal(out.columns, out.index)
 
 
+def test_upsample():
+
+    y = np.cumsum(rs.randn(100))
+
+    yy1 = stat.upsample(y, 1)
+    assert_equal(len(yy1), 100)
+    npt.assert_array_almost_equal(y, yy1)
+
+    yy2 = stat.upsample(y, 2)
+    assert_equal(len(yy2), 199)
+    npt.assert_array_almost_equal(y, yy2[::2])
+
+
 def test_gamma_hrf_fit_direct():
     """Very basic test of HRF fitting."""
     hrf = stat.GammaHRF()

@@ -3,6 +3,7 @@ from __future__ import division
 import numpy as np
 import scipy as sp
 from scipy import stats
+from scipy.interpolate import interp1d
 import pandas as pd
 import statsmodels.api as sm
 from six.moves import range
@@ -476,6 +477,23 @@ def transition_probabilities(sched):
 
     trans_probs = trans_probs.divide(pd.value_counts(sched[:-1]))
     return trans_probs.T
+
+
+def upsample(y, by):
+    """Upsample a timeseries by some factor using cubic spline interpolation.
+
+    y : array-like
+        Input data. Assumes that y is regularly sampled.
+    by : int
+        Factor to upsample by.
+
+    """
+    y = np.asarray(y)
+    ntp = len(y)
+    x = np.linspace(0, ntp - 1, ntp)
+    xx = np.linspace(0, ntp, ntp * by + 1)[:-by]
+    yy = interp1d(x, y, "cubic", axis=0)(xx)
+    return yy
 
 
 class GammaHRF(object):
