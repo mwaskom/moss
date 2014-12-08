@@ -496,6 +496,47 @@ def upsample(y, by):
     return yy
 
 
+def remove_unit_variance(df, col, unit, group=None, suffix="_within"):
+    """Remove variance between sampling units.
+
+    This is useful for plotting repeated-measures data using within-unit
+    error bars.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Input data. Will have a new column added.
+    col : column name
+        Column in dataframe with quantitative measure to modify.
+    unit : column name
+        Column in dataframe defining sampling units (e.g., subjects).
+    group : column name(s), optional
+        Columns defining groups to remove unit variance within.
+    suffix : string, optional
+        Suffix appended to ``col`` name to create new column.
+
+    Returns
+    -------
+    df : DataFrame
+        Returns modified dataframe.
+
+    """
+    new_col = col + suffix
+    f = lambda x: x - x.mean()
+
+    if group is None:
+        new = df.groupby(unit)[col].transform(f)
+        new += df[col].mean()
+        df.loc[:, new_col] = new
+    else:
+        for level, df_level in df.groupby(group):
+            new = df_level.groupby(unit)[col].transform(f)
+            new += df_level[col].mean()
+            df.loc[df[group] == level, new_col] = new
+
+    return df
+
+
 class GammaHRF(object):
     """Fit and predict a single gamma pdf function from timecourse data."""
     def __init__(self, shape=7, loc=0, scale=.9,
