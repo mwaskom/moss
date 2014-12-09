@@ -238,15 +238,6 @@ def build_simple_ev(data, onset, name, duration=None):
     ev["condition"] = name
 
     # Determine the event duration
-    if duration is None:
-        # All events modeled as an impulse
-        duration = 0
-    elif duration in data:
-        # Each event gets its own duration
-        duration = data[duration]
-    ev["duration"] = duration
-
-    # Determine the event duration
     ev = _add_duration_information(data, ev, duration)
 
     return ev
