@@ -70,7 +70,8 @@ def bootstrap(*args, **kwargs):
         return _smooth_bootstrap(args, n_boot, func, func_kwargs)
 
     if units is not None:
-        return _structured_bootstrap(args, n_boot, units, func, func_kwargs, rs)
+        return _structured_bootstrap(args, n_boot, units,
+                                     func, func_kwargs, rs)
 
     boot_dist = []
     for i in range(int(n_boot)):
