@@ -204,3 +204,148 @@ def cb1_cost(ideal_mat, test_mat):
     cb1err = cb1err.sum()
     cb1err /= ideal_mat.shape[0] ** 2
     return cb1err
+
+
+def build_simple_ev(data, onset, name, duration=None):
+    """Make design info for a single-column constant-value ev.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data; must have "run" column and any others specified.
+    onset : string
+        Column name containing event onset information.
+    name : string
+        Condition name to use for this ev.
+    duration : string, float, or ``None``
+        Column name containing event duration information, or a value
+        to use for all events, or ``None`` to model events as impulses.
+
+    Returns
+    -------
+    ev : DataFrame
+        Returned DataFrame will have "run", "onset", "duration", "value",
+        and "condition" columns.
+
+    """
+    ev = data[["run", onset]].copy()
+    ev.columns = ["run", "onset"]
+
+    # Set a constant amplitude for all events
+    ev["value"] = 1
+
+    # Use the same condition name for all events
+    ev["condition"] = name
+
+    # Determine the event duration
+    if duration is None:
+        # All events modeled as an impulse
+        duration = 0
+    elif duration in data:
+        # Each event gets its own duration
+        duration = data[duration]
+    ev["duration"] = duration
+
+    # Determine the event duration
+    ev = _add_duration_information(data, ev, duration)
+
+    return ev
+
+
+def build_condition_ev(data, onset, condition, duration=None):
+    """Make design info for a multi-column constant-value ev.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data; must have "run" column and any others specified.
+    onset : string
+        Column name containing event onset information.
+    condition : string
+        Column name containing condition information.
+    duration : string, float, or ``None``
+        Column name containing event duration information, or a value
+        to use for all events, or ``None`` to model events as impulses.
+
+    Returns
+    -------
+    ev : DataFrame
+        Returned DataFrame will have "run", "onset", "duration", "value",
+        and "condition" columns.
+
+    """
+    ev = data[["run", onset, condition]].copy()
+    ev.columns = ["run", "onset", "condition"]
+
+    # Set a constant amplitude for all events
+    ev["value"] = 1
+
+    # Determine the event duration
+    ev = _add_duration_information(data, ev, duration)
+
+    return ev
+
+
+def build_parametric_ev(data, onset, name, value, duration=None,
+                        center=None, scale=None):
+    """Make design info for a multi-column constant-value ev.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data; must have "run" column and any others specified.
+    onset : string
+        Column name containing event onset information.
+    name : string
+        Condition name to use for this ev.
+    value : string
+        Column name containing event amplitude information.
+    duration : string, float, or ``None``
+        Column name containing event duration information, or a value
+        to use for all events, or ``None`` to model events as impulses.
+    center : float, optional
+        Value to center the ``value`` column at before scaling. If absent,
+        center at the mean across runs.
+    scale : callable, optional
+        Function to scale the centered value column with.
+
+    Returns
+    -------
+    ev : DataFrame
+        Returned DataFrame will have "run", "onset", "duration", "value",
+        and "condition" columns.
+
+    """
+    ev = data[["run", onset, value]].copy()
+    ev.columns = ["run", "onset", "value"]
+
+    # Center the event amplitude
+    if center is None:
+        ev["value"] -= ev.value.mean()
+    else:
+        ev["value"] = ev.value - center
+
+    # (Possibly) scale the event amplitude
+    if scale is not None:
+        ev["value"] = scale(ev["value"])
+
+    # Set a condition name for all events
+    ev["condition"] = name
+
+    # Determine the event duration
+    ev = _add_duration_information(data, ev, duration)
+
+    return ev
+
+
+def _add_duration_information(data, ev, duration):
+    """Determine event duration in one of a few ways."""
+    if duration is None:
+        # All events modeled as an impulse
+        duration = 0
+    elif duration in data:
+        # Each event gets its own duration
+        duration = data[duration]
+    ev["duration"] = duration
+
+    return ev

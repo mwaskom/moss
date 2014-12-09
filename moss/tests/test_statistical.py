@@ -8,7 +8,9 @@ from six.moves import range
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 import numpy.testing as npt
 import nose.tools
+import nose.tools as nt
 from nose.tools import assert_equal, assert_almost_equal, raises
+import pandas.util.testing as pdt
 
 from .. import statistical as stat
 
@@ -532,3 +534,34 @@ def test_gamma_hrf_bounds():
     hrf.fit(x, y)
     nose.tools.assert_less(hrf.shape_, 5.75)
     nose.tools.assert_less_equal(1, hrf.scale_)
+
+
+class TestRemoveUnitVariance(object):
+
+    rs = np.random.RandomState(93)
+    df = pd.DataFrame(dict(value=rs.rand(8),
+                           group=np.repeat(np.tile(["m", "n"], 2), 2),
+                           cond=np.tile(["x", "y"], 4),
+                           unit=np.repeat(["a", "b"], 4)))
+
+    def test_remove_all(self):
+
+        df = stat.remove_unit_variance(self.df, "value", "unit")
+        nt.assert_in("value_within", df)
+
+        nt.assert_equal(self.df.value.mean(), self.df.value_within.mean())
+        nt.assert_equal(self.df.groupby("unit").value_within.mean().var(), 0)
+
+    def test_remove_by_group(self):
+
+        df = stat.remove_unit_variance(self.df, "value", "unit", "group")
+        grp = df.groupby("group")
+        pdt.assert_series_equal(grp.value.mean(), grp.value_within.mean())
+
+        for _, g in grp:
+            nt.assert_equal(g.groupby("unit").value_within.mean().var(), 0)
+
+    def test_suffix(self):
+
+        df = stat.remove_unit_variance(self.df, "value", "unit", suffix="_foo")
+        nt.assert_in("value_foo", df)
