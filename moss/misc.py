@@ -35,7 +35,7 @@ def df_ttest(df, by, key, paired=False, nice=True, **kwargs):
 def df_oneway(df, by, key, nice=True, **kwargs):
     """Perform a oneway analysis over variance on a DataFrame groupby."""
     args = [d[key] for i, d in df.groupby(by)]
-    f, p = stats.oneway(*args, **kwargs)
+    f, p = stats.f_oneway(*args, **kwargs)
     dof_b = len(args) - 1
     dof_w = len(df) - dof_b
     if nice:
