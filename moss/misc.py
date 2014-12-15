@@ -25,7 +25,7 @@ def df_ttest(df, by, key, paired=False, nice=True, **kwargs):
     test_func = getattr(stats, "ttest_" + test_kind)
     args = [d[key] for i, d in df.groupby(by)]
     t, p = test_func(*args, **kwargs)
-    dof = len(df) - 1 if paired else len(df) - 2
+    dof = (len(df) / 2) - 1 if paired else len(df) - 2
     if nice:
         return "t(%d) = %.3f; p = %.3g%s" % (dof, t, p, sig_stars(p))
     else:
