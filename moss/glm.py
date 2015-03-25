@@ -338,7 +338,8 @@ class DesignMatrix(object):
             from sklearn.decomposition import PCA
             pca = PCA(0.99).fit_transform(confounds)
             n_conf = pca.shape[1]
-            new_columns = pd.Series(["confound_%d"] * n_conf) % range(n_conf)
+            new_columns = pd.Series(["confound_{:d}".format(i)
+                                     for i in range(n_conf)])
             confounds = pd.DataFrame(pca, confounds.index, new_columns)
 
         # Set up the artifacts submatrix
@@ -475,14 +476,17 @@ class DesignMatrix(object):
             return None
 
         n = comp.shape[1]
+        comp_ids = list(range(n))
         try:
             names = comp.columns
         except AttributeError:
-            names = pd.Series([name_base + "_%d"] * n) % range(n)
+            names = pd.Series(["{}_{:d}".format(name_base, i)
+                               for i in comp_ids])
             comp = pd.DataFrame(comp, self.frametimes, names)
 
-        if names.tolist() == range(n):
-            names = pd.Series([name_base + "_%d"] * n) % range(n)
+        if names.tolist() == comp_ids:
+            names = pd.Series(["{}_{:d}".format(name_base, i)
+                               for i in comp_ids])
             comp.columns = names
 
         frametimes_match = (np.all(comp.index == self.frametimes) or
@@ -538,7 +542,7 @@ class DesignMatrix(object):
         ax.imshow(mat, aspect="auto", cmap=cmap, vmin=-.2, vmax=1.2,
                   interpolation="nearest", zorder=2)
         ax.set_yticks([])
-        ax.set_xticks(range(len(names)))
+        ax.set_xticks(np.arange(len(names)))
         ax.set_xticklabels(names, ha="right", rotation=30)
         for x in range(len(names) - 1):
             ax.axvline(x + .5, c="k", lw=3, zorder=3)
