@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
-from scipy import signal
+from scipy import stats, signal
 from sklearn.decomposition import PCA
 
 import nose.tools as nt
 import numpy.testing as npt
+import pandas.util.testing as pdt
 
 from .. import glm
 
@@ -115,6 +116,19 @@ def test_hrf_names():
     hrf2 = glm.GammaDifferenceHRF(temporal_deriv=True)
     conv4 = hrf2.convolve(series_data)
     nt.assert_equal(conv4.columns.tolist(), ["donna", "donna_deriv"])
+
+def test_hrf_impulse_response():
+
+    hrf = glm.GammaDifferenceHRF(tr=1, oversampling=16, kernel_secs=32,
+                                 pos_shape=6, pos_scale=1, ratio=0)
+    response = hrf.impulse_response
+    timepoints = np.arange(0, 32, 1 / 16., dtype=np.float)
+    expected = stats.gamma(6).pdf(timepoints)
+    expected /= expected.sum()
+    expected = pd.DataFrame(data=expected,
+                            index=timepoints,
+                            columns=["Impulse response"])
+    pdt.assert_frame_equal(response, expected)
 
 
 def test_fir_convolution():

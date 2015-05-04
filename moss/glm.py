@@ -25,6 +25,15 @@ class HRFModel(object):
         """Evaluate the kernel at timepoints."""
         raise NotImplementedError
 
+    @property
+    def impulse_response(self):
+        """Return the impulse response function for a given HRF"""
+        data = pd.Series(np.zeros_like(self._timepoints),
+                         index=self._timepoints,
+                         name="Impulse response")
+        data.ix[0] = 1
+        return self.convolve(data)
+
     def convolve(self, data):
         """Convolve the kernel with some data."""
         raise NotImplementedError
@@ -47,7 +56,7 @@ class GammaDifferenceHRF(HRFModel):
         self._tr = tr
         self._oversampling = oversampling
         dt = tr / oversampling
-        self._timepoints = np.linspace(0, kernel_secs, kernel_secs / dt)
+        self._timepoints = np.arange(0, kernel_secs, dt, np.float)
         self._temporal_deriv = temporal_deriv
         self._ratio = ratio
 
@@ -137,6 +146,7 @@ class FIR(HRFModel):
         self._nbasis = nbasis
         self._offset = offset
         self._oversampling = 1
+        self._timepoints = np.arange(0, tr * nbasis, tr)
 
     def convolve(self, data, frametimes=None, name=None):
         """'Convolve' the kernel with some data.
