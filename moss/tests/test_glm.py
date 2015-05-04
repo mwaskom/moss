@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 import pandas as pd
 from scipy import stats, signal
 from sklearn.decomposition import PCA
@@ -122,11 +123,14 @@ def test_hrf_impulse_response():
     hrf = glm.GammaDifferenceHRF(tr=1, oversampling=16, kernel_secs=32,
                                  pos_shape=6, pos_scale=1, ratio=0)
     response = hrf.impulse_response
-    timepoints = np.arange(0, 32, 1 / 16., dtype=np.float)
-    expected = stats.gamma(6).pdf(timepoints)
+
+    expected = stats.gamma(6).pdf(hrf._timepoints)
     expected /= expected.sum()
-    expected = pd.DataFrame(data=expected,
-                            index=timepoints,
+    resampler = sp.interpolate.interp1d(hrf._timepoints,
+                                        expected,
+                                        "nearest")
+    expected = pd.DataFrame(data=resampler(hrf._sampled_timepoints),
+                            index=hrf._sampled_timepoints,
                             columns=["Impulse response"])
     pdt.assert_frame_equal(response, expected)
 

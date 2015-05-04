@@ -28,11 +28,23 @@ class HRFModel(object):
     @property
     def impulse_response(self):
         """Return the impulse response function for a given HRF"""
-        data = pd.Series(np.zeros_like(self._timepoints),
-                         index=self._timepoints,
-                         name="Impulse response")
-        data.ix[0] = 1
-        return self.convolve(data)
+        hires_timepoints = self._timepoints
+        impulse = pd.Series(np.zeros_like(hires_timepoints),
+                            index=hires_timepoints,
+                            name="Impulse response")
+        impulse.ix[0] = 1
+        hires_response = self.convolve(impulse)
+
+        out_response = pd.DataFrame(index=self._sampled_timepoints,
+                                    columns=hires_response.columns,
+                                    dtype=np.float)
+        for col, col_data in hires_response.iteritems():
+            resampler = sp.interpolate.interp1d(hires_timepoints,
+                                                col_data,
+                                                kind="nearest")
+            out_response[col] = resampler(self._sampled_timepoints)
+
+        return out_response
 
     def convolve(self, data):
         """Convolve the kernel with some data."""
@@ -49,7 +61,7 @@ class GammaDifferenceHRF(HRFModel):
     """Canonical difference of gamma variates HRF model."""
     def __init__(self, temporal_deriv=False, tr=2, oversampling=16,
                  kernel_secs=32, pos_shape=6, pos_scale=1,
-                 neg_shape=16, neg_scale=1, ratio=1./6):
+                 neg_shape=16, neg_scale=1, ratio=1 / 6):
         """Create the HRF object with FSL parameters as default."""
         self._rv_pos = gamma(pos_shape, scale=pos_scale)
         self._rv_neg = gamma(neg_shape, scale=neg_scale)
@@ -57,6 +69,9 @@ class GammaDifferenceHRF(HRFModel):
         self._oversampling = oversampling
         dt = tr / oversampling
         self._timepoints = np.arange(0, kernel_secs, dt, np.float)
+        self._sampled_timepoints = np.arange(0, kernel_secs, tr,
+                                             np.float) + (tr * .5)
+        self._kernel_secs = kernel_secs
         self._temporal_deriv = temporal_deriv
         self._ratio = ratio
 
@@ -147,6 +162,8 @@ class FIR(HRFModel):
         self._offset = offset
         self._oversampling = 1
         self._timepoints = np.arange(0, tr * nbasis, tr)
+        self._sampled_timepoints = self._timepoints
+        self._kernel_secs = tr * nbasis
 
     def convolve(self, data, frametimes=None, name=None):
         """'Convolve' the kernel with some data.
