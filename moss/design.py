@@ -243,7 +243,7 @@ def build_simple_ev(data, onset, name, duration=None):
     return ev
 
 
-def build_condition_ev(data, onset, condition, duration=None):
+def build_condition_ev(data, onset, condition, duration=None, prefix=None):
     """Make design info for a multi-column constant-value ev.
 
     Parameters
@@ -257,6 +257,8 @@ def build_condition_ev(data, onset, condition, duration=None):
     duration : string, float, or ``None``
         Column name containing event duration information, or a value
         to use for all events, or ``None`` to model events as impulses.
+    prefix : string or ``None``
+        Prefix to add to all condition names.
 
     Returns
     -------
@@ -267,6 +269,9 @@ def build_condition_ev(data, onset, condition, duration=None):
     """
     ev = data[["run", onset, condition]].copy()
     ev.columns = ["run", "onset", "condition"]
+
+    if prefix is not None:
+        ev["condition"] = prefix + ev["condition"]
 
     # Set a constant amplitude for all events
     ev["value"] = 1
