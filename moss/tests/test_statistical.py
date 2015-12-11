@@ -556,7 +556,8 @@ class TestRemoveUnitVariance(object):
 
         df = stat.remove_unit_variance(self.df, "value", "unit", "group")
         grp = df.groupby("group")
-        pdt.assert_series_equal(grp.value.mean(), grp.value_within.mean())
+        pdt.assert_series_equal(grp.value.mean(), grp.value_within.mean(),
+                                check_names=False)
 
         for _, g in grp:
             nt.assert_equal(g.groupby("unit").value_within.mean().var(), 0)
