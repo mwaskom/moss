@@ -1,7 +1,6 @@
 """Assorted functions for statistical calculations."""
 from __future__ import division
 import numpy as np
-import scipy as sp
 from scipy import stats
 from scipy.interpolate import interp1d
 import pandas as pd
@@ -537,3 +536,33 @@ def remove_unit_variance(df, col, unit, group=None, suffix="_within"):
             df.loc[new.index, new_col] = new
 
     return df
+
+
+def vectorized_correlation(x, y):
+    """Compute correlation coefficient between arrays with vectorization.
+
+    Parameters
+    ----------
+    x, y : array-like
+        Dimensions on the final axis should match, computation will be
+        vectorized over preceding axes. Dimensions will be matched, or
+        broadcasted, depending on shapes. In other words, passing two (m x n)
+        arrays will compute the correlation between each pair of rows and
+        return a vector of length n. Passing one vector of length n and one
+        array of shape (m x n) will compute the correlation between the vector
+        and each row in the array, also returning a vector of length n.
+
+    Returns
+    -------
+    r : array
+        Correlation coefficient(s).
+
+    """
+    x, y = np.asarray(x), np.asarray(y)
+    mx = x.mean(axis=-1)
+    my = y.mean(axis=-1)
+    xm, ym = x - mx[..., None], y - my[..., None]
+    r_num = np.add.reduce(xm * ym, axis=-1)
+    r_den = np.sqrt(stats.ss(xm, axis=-1) * stats.ss(ym, axis=-1))
+    r = r_num / r_den
+    return r

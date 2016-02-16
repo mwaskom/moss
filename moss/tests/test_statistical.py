@@ -510,3 +510,36 @@ class TestRemoveUnitVariance(object):
 
         df = stat.remove_unit_variance(self.df, "value", "unit", suffix="_foo")
         nt.assert_in("value_foo", df)
+
+
+class TestVectorizedCorrelation(object):
+
+    rs = np.random.RandomState()
+    a = rs.randn(50)
+    b = rs.randn(50)
+    c = rs.randn(5, 50)
+    d = rs.randn(5, 50)
+
+    def test_vector_to_vector(self):
+
+        r_got = stat.vectorized_correlation(self.a, self.b)
+        r_want, _ = spstats.pearsonr(self.a, self.b)
+        npt.assert_almost_equal(r_got, r_want)
+
+    def test_vector_to_matrix(self):
+
+        r_got = stat.vectorized_correlation(self.a, self.c)
+        nt.assert_equal(r_got.shape, (self.c.shape[0],))
+
+        for i, r_got_i in enumerate(r_got):
+            r_want_i, _ = spstats.pearsonr(self.a, self.c[i])
+            npt.assert_almost_equal(r_got_i, r_want_i)
+
+    def test_matrix_to_matrix(self):
+
+        r_got = stat.vectorized_correlation(self.c, self.d)
+        nt.assert_equal(r_got.shape, (self.c.shape[0],))
+
+        for i, r_got_i in enumerate(r_got):
+            r_want_i, _ = spstats.pearsonr(self.c[i], self.d[i])
+            npt.assert_almost_equal(r_got_i, r_want_i)
