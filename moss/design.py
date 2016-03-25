@@ -232,10 +232,10 @@ def build_simple_ev(data, onset, name, duration=None):
     ev.columns = ["run", "onset"]
 
     # Set a constant amplitude for all events
-    ev["value"] = 1
+    ev.loc[:, "value"] = 1
 
     # Use the same condition name for all events
-    ev["condition"] = name
+    ev.loc[:, "condition"] = name
 
     # Determine the event duration
     ev = _add_duration_information(data, ev, duration)
