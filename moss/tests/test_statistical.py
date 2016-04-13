@@ -543,3 +543,27 @@ class TestVectorizedCorrelation(object):
         for i, r_got_i in enumerate(r_got):
             r_want_i, _ = spstats.pearsonr(self.c[i], self.d[i])
             npt.assert_almost_equal(r_got_i, r_want_i)
+
+
+class TestPercentChange(object):
+
+    ts_array = np.arange(6).reshape(1, 6)
+    ts = pd.DataFrame(ts_array)
+
+    def test_df(self):
+
+        out = stat.percent_change(self.ts)
+        want = pd.DataFrame([[-100, -60, -20, 20, 60, 100]], dtype=np.float)
+        pdt.assert_frame_equal(out, want)
+
+    def test_df_multirun(self):
+
+        out = stat.percent_change(self.ts, 2)
+        want = pd.DataFrame([[-100, 0, 100, -25, 0, 25]], dtype=np.float)
+        pdt.assert_frame_equal(out, want)
+
+    def test_array(self):
+
+        out = stat.percent_change(self.ts_array, 2)
+        want = np.array([[-100, 0, 100, -25, 0, 25]], np.float)
+        npt.assert_array_equal(out, want)

@@ -566,3 +566,45 @@ def vectorized_correlation(x, y):
     r_den = np.sqrt(stats.ss(xm, axis=-1) * stats.ss(ym, axis=-1))
     r = r_num / r_den
     return r
+
+
+def percent_change(ts, n_runs=1):
+    """Convert to percent signal change by run.
+
+    Assumes all runs have the same length.
+
+    Parameters
+    ----------
+    ts : array or DataFrame
+        Timeseries data with timepoints in the columns.
+    n_runs : int
+        Number of runs to split the timeseries into.
+
+    Returns
+    -------
+    out_ts : array or DataFrame
+        Rescaled timeseries with type of input.
+
+    """
+    if not isinstance(ts, pd.DataFrame):
+        ts = pd.DataFrame(np.atleast_2d(ts))
+        dataframe = False
+    else:
+        dataframe = True
+
+    run_tps = np.split(ts.columns, n_runs)
+
+    # Iterate over runs
+    run_data = []
+    for run in xrange(n_runs):
+        run_ts = ts[run_tps[run]]
+        run_ts = (run_ts.divide(run_ts.mean(axis=1), axis=0) - 1) * 100
+        run_data.append(run_ts)
+
+    out_ts = pd.concat(run_data, axis=1)
+
+    # Return input type
+    if not dataframe:
+        out_ts = out_ts.values
+
+    return out_ts
