@@ -598,7 +598,7 @@ def percent_change(ts, n_runs=1):
 
     # Iterate over runs
     run_data = []
-    for run in xrange(n_runs):
+    for run in range(n_runs):
         run_ts = ts[run_tps[run]]
         run_ts = (run_ts.divide(run_ts.mean(axis=1), axis=0) - 1) * 100
         run_data.append(run_ts)
