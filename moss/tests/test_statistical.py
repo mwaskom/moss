@@ -62,7 +62,9 @@ def test_bootstrap_multiarg():
     x = np.vstack([[1, 10] for i in range(10)])
     y = np.vstack([[5, 5] for i in range(10)])
 
-    test_func = lambda x, y: np.vstack((x, y)).max(axis=0)
+    def test_func(x, y):
+        return np.vstack((x, y)).max(axis=0)
+
     out_actual = stat.bootstrap(x, y, n_boot=2, func=test_func)
     out_wanted = np.array([[5, 10], [5, 10]])
     assert_array_equal(out_actual, out_wanted)
@@ -100,8 +102,8 @@ def test_smooth_bootstrap():
 
 def test_bootstrap_ols():
     """Test bootstrap of OLS model fit."""
-    ols_fit = lambda X, y: np.dot(np.dot(np.linalg.inv(
-                                  np.dot(X.T, X)), X.T), y)
+    def ols_fit(X, y):
+        return np.dot(np.dot(np.linalg.inv(np.dot(X.T, X)), X.T), y)
     X = np.column_stack((rs.randn(50, 4), np.ones(50)))
     w = [2, 4, 0, 3, 5]
     y_noisy = np.dot(X, w) + rs.randn(50) * 20

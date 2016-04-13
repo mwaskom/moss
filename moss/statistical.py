@@ -522,16 +522,18 @@ def remove_unit_variance(df, col, unit, group=None, suffix="_within"):
 
     """
     new_col = col + suffix
-    f = lambda x: x - x.mean()
+
+    def demean(x):
+        return x - x.mean()
 
     if group is None:
-        new = df.groupby(unit)[col].transform(f)
+        new = df.groupby(unit)[col].transform(demean)
         new += df[col].mean()
         df.loc[:, new_col] = new
     else:
         df.loc[:, new_col] = np.nan
         for level, df_level in df.groupby(group):
-            new = df_level.groupby(unit)[col].transform(f)
+            new = df_level.groupby(unit)[col].transform(demean)
             new += df_level[col].mean()
             df.loc[new.index, new_col] = new
 
