@@ -14,7 +14,7 @@ MAINTAINER_EMAIL = 'mwaskom@stanford.edu'
 LICENSE = 'BSD (3-clause)'
 URL = 'https://github.com/mwaskom/moss'
 DOWNLOAD_URL = 'https://github.com/mwaskom/moss'
-VERSION = '0.4'
+VERSION = '0.4.2'
 
 from setuptools import setup
 
@@ -60,7 +60,8 @@ if __name__ == "__main__":
         URL=URL,
         download_url=DOWNLOAD_URL,
         packages=['moss', 'moss.tests',
-                  'moss.nipy', 'moss.nipy.volumes', 'moss.nipy.transforms'],
+                  'moss.nipy', 'moss.nipy.volumes', 'moss.nipy.transforms',
+                  'moss.external'],
         scripts=["bin/" + s for s in ["check_mni_reg", "recon_movie",
                                       "recon_status", "recon_qc",
                                       "recon_process_stats", "ts_movie"]],
