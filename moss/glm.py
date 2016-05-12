@@ -329,9 +329,9 @@ class DesignMatrix(object):
             self.design = design
         else:
             if "duration" not in design:
-                design["duration"] = 0
+                design.loc[:, "duration"] = 0
             if "value" not in design:
-                design["value"] = 1
+                design.loc[:, "value"] = 1
 
             self.design = design
 
