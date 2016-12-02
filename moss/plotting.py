@@ -10,5 +10,5 @@ def grid_axes_labels(axes, xlabel=None, ylabel=None, **kws):
             ax.set_xlabel(xlabel, **kws)
 
     if ylabel is not None:
-        for ax in axes[0]:
+        for ax in axes[:, 0]:
             ax.set_ylabel(ylabel, **kws)
