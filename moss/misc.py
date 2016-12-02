@@ -1,8 +1,11 @@
 """Miscellaneous utility functions."""
+import gzip
 import itertools
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+import six.moves.cPickle as pickle
 
 
 def df_to_struct(df):
@@ -104,3 +107,27 @@ def iqr(a):
     q1 = stats.scoreatpercentile(a, 25)
     q3 = stats.scoreatpercentile(a, 75)
     return q3 - q1
+
+
+class Results(object):
+    """Extremely simple namespace for passing around and pickling data."""
+    def __init__(self, **kwargs):
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+
+
+def load_pkl(fname, zip=True):
+    """Read pickled data from disk, possible decompressing."""
+    if zip:
+        open = gzip.open
+    with open(fname, "rb") as fid:
+        res = pickle.load(fid)
+    return res
+
+
+def save_pkl(fname, res, zip=True):
+    """Write pickled data to disk, possible compressing."""
+    if zip:
+        open = gzip.open
+    with open(fname, "wb") as fid:
+        pickle.dump(res, fid)

@@ -1,7 +1,6 @@
 """Assorted functions for statistical calculations."""
 from __future__ import division
 import numpy as np
-import scipy as sp
 from scipy import stats
 from scipy.interpolate import interp1d
 import pandas as pd
@@ -523,144 +522,91 @@ def remove_unit_variance(df, col, unit, group=None, suffix="_within"):
 
     """
     new_col = col + suffix
-    f = lambda x: x - x.mean()
+
+    def demean(x):
+        return x - x.mean()
 
     if group is None:
-        new = df.groupby(unit)[col].transform(f)
+        new = df.groupby(unit)[col].transform(demean)
         new += df[col].mean()
         df.loc[:, new_col] = new
     else:
         df.loc[:, new_col] = np.nan
         for level, df_level in df.groupby(group):
-            new = df_level.groupby(unit)[col].transform(f)
+            new = df_level.groupby(unit)[col].transform(demean)
             new += df_level[col].mean()
             df.loc[new.index, new_col] = new
 
     return df
 
 
-class GammaHRF(object):
-    """Fit and predict a single gamma pdf function from timecourse data."""
-    def __init__(self, shape=7, loc=0, scale=.9,
-                 coef=None, baseline=None, bounds=None):
-        """Provide starting values for the optimization and optional bounds.
+def vectorized_correlation(x, y):
+    """Compute correlation coefficient between arrays with vectorization.
 
-        Defaults are basically a single Glover HRF.
+    Parameters
+    ----------
+    x, y : array-like
+        Dimensions on the final axis should match, computation will be
+        vectorized over preceding axes. Dimensions will be matched, or
+        broadcasted, depending on shapes. In other words, passing two (m x n)
+        arrays will compute the correlation between each pair of rows and
+        return a vector of length n. Passing one vector of length n and one
+        array of shape (m x n) will compute the correlation between the vector
+        and each row in the array, also returning a vector of length n.
 
-        If `bounds` is not None, contstrained optimization is performed
-        using leastsqbound.
+    Returns
+    -------
+    r : array
+        Correlation coefficient(s).
 
-        Parameters
-        ----------
-        shape, loc, scale : floats
-            parameters for scipy.stats.gamma
-        coef : float
-            height scaling parameter. calculated automatically if None
-        baseline : None or float
-            value of function at loc_0. uses data min if None
-        bounds : dict or None
-            keys are parameter names and values are (min, max)
-            bounds for each parameter
+    """
+    x, y = np.asarray(x), np.asarray(y)
+    mx = x.mean(axis=-1)
+    my = y.mean(axis=-1)
+    xm, ym = x - mx[..., None], y - my[..., None]
+    r_num = np.add.reduce(xm * ym, axis=-1)
+    r_den = np.sqrt(stats.ss(xm, axis=-1) * stats.ss(ym, axis=-1))
+    r = r_num / r_den
+    return r
 
-        """
-        self.starting_vals = [shape, loc, scale, coef, baseline]
 
-        if bounds is None:
-            self.bounds = None
-        else:
-            params = ["shape", "loc", "scale", "coef", "baseline"]
-            cols = ["min", "max"]
-            bdf = pd.DataFrame(index=params, columns=cols)
-            bdf[:] = None
-            bdf.update(pd.DataFrame(bounds, index=cols).T)
-            self.bounds = list(map(tuple, np.array(bdf).tolist()))
+def percent_change(ts, n_runs=1):
+    """Convert to percent signal change by run.
 
-    def fit(self, x, y, maxfev=0):
-        """Optimize a fit to data using least squares.
+    Assumes all runs have the same length.
 
-        Parameters
-        ----------
-        x : 1d array
-            timepoints (in seconds)
-        y : 1d array
-            observed data values
-        maxfev : int, optional
-            maximum function evals (0 sets automatic default)
+    Parameters
+    ----------
+    ts : array or DataFrame
+        Timeseries data with timepoints in the columns.
+    n_runs : int
+        Number of runs to split the timeseries into.
 
-        Returns
-        -------
-        self : reference to self
+    Returns
+    -------
+    out_ts : array or DataFrame
+        Rescaled timeseries with type of input.
 
-        """
-        def _objective(vals):
+    """
+    if not isinstance(ts, pd.DataFrame):
+        ts = pd.DataFrame(np.atleast_2d(ts))
+        dataframe = False
+    else:
+        dataframe = True
 
-            shape, loc, scale, coef, baseline = vals
-            pdf = stats.gamma(shape, loc, scale).pdf(x)
-            pdf *= coef
-            pdf += baseline
-            return y - pdf
+    run_tps = np.split(ts.columns, n_runs)
 
-        shape, loc, scale, coef, baseline = self.starting_vals
-        if baseline is None:
-            baseline = np.min(y)
+    # Iterate over runs
+    run_data = []
+    for run in range(n_runs):
+        run_ts = ts[run_tps[run]]
+        run_ts = (run_ts.divide(run_ts.mean(axis=1), axis=0) - 1) * 100
+        run_data.append(run_ts)
 
-        if coef is None:
-            y_range = np.max(y) - baseline
-            starting_mode = (shape - 1) * scale + loc
-            gamma_rv = stats.gamma(shape, loc, scale)
-            starting_peak = gamma_rv.pdf(starting_mode)
-            coef = y_range / starting_peak
+    out_ts = pd.concat(run_data, axis=1)
 
-        starting_vals = [shape, loc, scale, coef, baseline]
-        if self.bounds is None:
-            optim_vals, _ = sp.optimize.leastsq(_objective,
-                                                starting_vals,
-                                                maxfev=maxfev)
-        else:
-            from moss import leastsqbound
-            optim_vals, _ = leastsqbound.leastsqbound(_objective,
-                                                      starting_vals,
-                                                      bounds=self.bounds,
-                                                      maxfev=maxfev)
+    # Return input type
+    if not dataframe:
+        out_ts = out_ts.values
 
-        shape, loc, scale, coef, baseline = optim_vals
-        self.shape_ = shape
-        self.loc_ = loc
-        self.scale_ = scale
-        self.coef_ = coef
-        self.baseline_ = baseline
-        self.fit_r2_ = self.r2_score(x, y)
-        return self
-
-    def predict(self, x):
-        """Using fit values, predict heights for new timepoints.
-
-        Parameters
-        ----------
-        x : array
-            timepoints (in seconds)
-
-        Returns
-        -------
-        hrf : array
-            predicted heights at each timepoint
-
-        """
-        hrf = stats.gamma(self.shape_, self.loc_, self.scale_).pdf(x)
-        hrf *= self.coef_
-        hrf += self.baseline_
-        return hrf
-
-    def r2_score(self, x, y):
-        """Predict new values at x and measure fit with y."""
-        hrf = self.predict(x)
-        ssres = np.sum(np.square(hrf - y))
-        sstot = np.sum(np.square(y - y.mean()))
-        return 1 - (ssres / sstot)
-
-    @property
-    def peak_time_(self):
-        """Use fit parameters to predict time to peak."""
-        if self.shape_ > 1:
-            return (self.shape_ - 1) * self.scale_ + self.loc_
-        return self.loc_
+    return out_ts

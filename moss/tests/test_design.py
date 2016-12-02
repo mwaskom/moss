@@ -77,6 +77,9 @@ class TestEVCreation(object):
         npt.assert_array_equal(ev.condition, self.data.stim)
         npt.assert_array_equal(ev.duration, np.zeros(4))
 
+        ev = design.build_condition_ev(self.data, "cue", "stim", prefix="a_")
+        npt.assert_array_equal(ev.condition, "a_" + self.data.stim)
+
     def test_parametric_ev(self):
 
         ev = design.build_parametric_ev(self.data, "cue", "resp_time", "rt")

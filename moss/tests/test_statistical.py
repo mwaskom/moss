@@ -62,7 +62,9 @@ def test_bootstrap_multiarg():
     x = np.vstack([[1, 10] for i in range(10)])
     y = np.vstack([[5, 5] for i in range(10)])
 
-    test_func = lambda x, y: np.vstack((x, y)).max(axis=0)
+    def test_func(x, y):
+        return np.vstack((x, y)).max(axis=0)
+
     out_actual = stat.bootstrap(x, y, n_boot=2, func=test_func)
     out_wanted = np.array([[5, 10], [5, 10]])
     assert_array_equal(out_actual, out_wanted)
@@ -100,8 +102,8 @@ def test_smooth_bootstrap():
 
 def test_bootstrap_ols():
     """Test bootstrap of OLS model fit."""
-    ols_fit = lambda X, y: np.dot(np.dot(np.linalg.inv(
-                                  np.dot(X.T, X)), X.T), y)
+    def ols_fit(X, y):
+        return np.dot(np.dot(np.linalg.inv(np.dot(X.T, X)), X.T), y)
     X = np.column_stack((rs.randn(50, 4), np.ones(50)))
     w = [2, 4, 0, 3, 5]
     y_noisy = np.dot(X, w) + rs.randn(50) * 20
@@ -480,62 +482,6 @@ def test_upsample():
     npt.assert_array_almost_equal(y, yy2[::2])
 
 
-def test_gamma_hrf_fit_direct():
-    """Very basic test of HRF fitting."""
-    hrf = stat.GammaHRF()
-    x = np.arange(24)
-    y = spstats.gamma(6, 0, .9).pdf(x)
-    hrf.fit(x, y)
-    npt.assert_allclose(hrf.shape_, 6, atol=1e-6)
-    npt.assert_allclose(hrf.scale_, 0.9, atol=1e-6)
-    npt.assert_allclose(hrf.baseline_, 0, atol=1e-6)
-
-
-def test_gamma_hrf_predict():
-    """Test predictions of HRF model."""
-    hrf = stat.GammaHRF()
-    x = np.arange(24)
-    y = spstats.gamma(6, 0, .9).pdf(x)
-    y += rs.normal(0, .01, 24)
-    y_hat = hrf.fit(x, y).predict(x)
-    npt.assert_allclose(y, y_hat, atol=.1)
-
-
-def test_gamma_hrf_peak():
-    """Test calculation of HRF peak time."""
-    hrf = stat.GammaHRF()
-    x = np.arange(24)
-    y = spstats.gamma(6, 0, .9).pdf(x)
-    hrf.fit(x, y)
-    peak_wanted = 5 * .9
-    peak_observed = hrf.peak_time_
-    npt.assert_allclose(peak_wanted, peak_observed, atol=.2)
-
-
-def test_gamma_r2():
-    """Test that R2 is better with less noise."""
-    hrf = stat.GammaHRF()
-    x = np.arange(24)
-    y = spstats.gamma(6, 0, .9).pdf(x)
-    y_low = y + rs.normal(0, .001, 24)
-    y_high = y + rs.normal(0, .05, 24)
-    r2_low = hrf.fit(x, y).r2_score(x, y_low)
-    r2_high = hrf.fit(x, y).r2_score(x, y_high)
-    nose.tools.assert_less(r2_high, r2_low)
-
-
-def test_gamma_hrf_bounds():
-    """Test that we can supply bounds to the HRF optimzation."""
-    bounds = dict(shape=(3, 5.75), scale=(1, 1.5))
-    hrf = stat.GammaHRF(shape=5.5, scale=1.1, bounds=bounds)
-    x = np.arange(24)
-    y = spstats.gamma(6, 0, .9).pdf(x)
-    y += rs.normal(0, .01, 24)
-    hrf.fit(x, y)
-    nose.tools.assert_less(hrf.shape_, 5.75)
-    nose.tools.assert_less_equal(1, hrf.scale_)
-
-
 class TestRemoveUnitVariance(object):
 
     rs = np.random.RandomState(93)
@@ -556,7 +502,8 @@ class TestRemoveUnitVariance(object):
 
         df = stat.remove_unit_variance(self.df, "value", "unit", "group")
         grp = df.groupby("group")
-        pdt.assert_series_equal(grp.value.mean(), grp.value_within.mean())
+        pdt.assert_series_equal(grp.value.mean(), grp.value_within.mean(),
+                                check_names=False)
 
         for _, g in grp:
             nt.assert_equal(g.groupby("unit").value_within.mean().var(), 0)
@@ -565,3 +512,60 @@ class TestRemoveUnitVariance(object):
 
         df = stat.remove_unit_variance(self.df, "value", "unit", suffix="_foo")
         nt.assert_in("value_foo", df)
+
+
+class TestVectorizedCorrelation(object):
+
+    rs = np.random.RandomState()
+    a = rs.randn(50)
+    b = rs.randn(50)
+    c = rs.randn(5, 50)
+    d = rs.randn(5, 50)
+
+    def test_vector_to_vector(self):
+
+        r_got = stat.vectorized_correlation(self.a, self.b)
+        r_want, _ = spstats.pearsonr(self.a, self.b)
+        npt.assert_almost_equal(r_got, r_want)
+
+    def test_vector_to_matrix(self):
+
+        r_got = stat.vectorized_correlation(self.a, self.c)
+        nt.assert_equal(r_got.shape, (self.c.shape[0],))
+
+        for i, r_got_i in enumerate(r_got):
+            r_want_i, _ = spstats.pearsonr(self.a, self.c[i])
+            npt.assert_almost_equal(r_got_i, r_want_i)
+
+    def test_matrix_to_matrix(self):
+
+        r_got = stat.vectorized_correlation(self.c, self.d)
+        nt.assert_equal(r_got.shape, (self.c.shape[0],))
+
+        for i, r_got_i in enumerate(r_got):
+            r_want_i, _ = spstats.pearsonr(self.c[i], self.d[i])
+            npt.assert_almost_equal(r_got_i, r_want_i)
+
+
+class TestPercentChange(object):
+
+    ts_array = np.arange(6).reshape(1, 6)
+    ts = pd.DataFrame(ts_array)
+
+    def test_df(self):
+
+        out = stat.percent_change(self.ts)
+        want = pd.DataFrame([[-100, -60, -20, 20, 60, 100]], dtype=np.float)
+        pdt.assert_frame_equal(out, want)
+
+    def test_df_multirun(self):
+
+        out = stat.percent_change(self.ts, 2)
+        want = pd.DataFrame([[-100, 0, 100, -25, 0, 25]], dtype=np.float)
+        pdt.assert_frame_equal(out, want)
+
+    def test_array(self):
+
+        out = stat.percent_change(self.ts_array, 2)
+        want = np.array([[-100, 0, 100, -25, 0, 25]], np.float)
+        npt.assert_array_equal(out, want)
