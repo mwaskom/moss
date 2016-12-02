@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 
 
-def grid_axes_labels(f, xlabel=None, ylabel=None, **kws):
-
-    axes = f.axes
+def grid_axes_labels(axes, xlabel=None, ylabel=None, **kws):
 
     plt.setp(axes.flat, xlabel="", ylabel="")
 
