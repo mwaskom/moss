@@ -28,7 +28,10 @@ SD=$SUBJECTS_DIR/$1
 
 # Build the command line
 # Volume stuff first
-ARGS="-v $SD/mri/aseg.mgz:colormap=lut $SD/mri/T1.mgz $SD/mri/brainmask.mgz"
+ARGS="-v $SD/mri/aseg.mgz:colormap=lut \
+         $SD/mri/T1.mgz \
+         $SD/mri/brainmask.mgz \
+         $SD/mri/wm.mgz:colormap=heat:opacity=0.4"
 # Then surfaces
 ARGS="$ARGS -f $SD/surf/lh.white $SD/surf/rh.white"
 ARGS="$ARGS $SD/surf/lh.pial:edgecolor=red $SD/surf/rh.pial:edgecolor=red"
