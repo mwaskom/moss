@@ -382,6 +382,19 @@ def test_design_matrix_condition_defaults():
     npt.assert_array_equal(X1.design.duration.values, np.zeros(2))
 
 
+def test_design_matrix_deman():
+
+    hrf = glm.GammaDifferenceHRF(ratio=0)
+    design1 = pd.DataFrame(dict(condition=["one", "two"],
+                                onset=[5, 15]))
+
+    X1 = glm.DesignMatrix(design1, hrf, 20, hpf_cutoff=None)
+    npt.assert_array_less(X1.design_matrix.min(), np.zeros(2))
+
+    X2 = glm.DesignMatrix(design1, hrf, 20, demean=False, hpf_cutoff=None)
+    npt.assert_array_almost_equal(X2.design_matrix.min(), np.zeros(2))
+
+
 def test_design_matrix_frametimes():
     """Test the regular and hires frametimes."""
     hrf = glm.GammaDifferenceHRF(temporal_deriv=True)

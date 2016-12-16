@@ -220,8 +220,8 @@ class DesignMatrix(object):
 
     This class creates a design matrix that is most directly consistent with
     FSL; i.e., the design is filtered with the gaussian running-line approach
-    implemented by fslmaths, and the columns are de-meaned (so there is no
-    constant regressor in the final model).
+    implemented by fslmaths, and the columns are de-meaned by default (so there
+    is no constant regressor in the final model).
 
     Note that only the regressors resulting from the passed design are
     high-pass filtered. If your other regressors of interest, or confound
@@ -251,7 +251,7 @@ class DesignMatrix(object):
     def __init__(self, design=None, hrf_model=None, ntp=None, regressors=None,
                  confounds=None, artifacts=None, condition_names=None,
                  confound_pca=False, tr=2, hpf_cutoff=128, hpf_kernel=None,
-                 oversampling=16):
+                 oversampling=16, demean=True):
         """Initialize the design matrix object.
 
         Parameters
@@ -297,6 +297,8 @@ class DesignMatrix(object):
         oversampling : float
             Construction of the condition evs and convolution
             are performed on high-resolution data with this oversampling.
+        demean : bool
+            If True, regressors for the main conditions are set to zero mean.
 
         """
         self.tr = tr
@@ -348,7 +350,8 @@ class DesignMatrix(object):
 
             # Subsample the condition evs and highpass filter
             conditions = self._subsample_condition_matrix()
-            conditions -= conditions.mean()
+            if demean:
+                conditions -= conditions.mean()
             pp_heights = (conditions.max() - conditions.min()).tolist()
             if hpf_kernel is not None:
                 hpf_cutoff = hpf_kernel
@@ -393,7 +396,8 @@ class DesignMatrix(object):
         X = pd.concat(pieces, axis=1)
         X.index = self.frametimes
         X.columns.name = "evs"
-        X -= X.mean(axis=0)
+        if demean:
+            X -= X.mean(axis=0)
         self.design_matrix = X
 
         # Now build the column name lists that will let us index
