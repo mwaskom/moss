@@ -184,3 +184,19 @@ class TestMosaic(object):
         slc = mosaic.Mosaic(self.anat_img, self.stat_img)
         slc.plot_overlay("Purples", 0, 10.5, fmt="%d")
         nt.assert_equal(slc.fig.texts[-1].get_text(), "10")
+
+    def test_bad_slice_dir(self):
+
+        with nt.assert_raises(ValueError):
+            mosaic.Mosaic(self.anat_img, slice_dir="bad")
+
+    def test_slice_dirs(self):
+
+        for dir, axis in zip("sca", (0, 1, 2)):
+            slc = mosaic.Mosaic(self.anat_img, slice_dir=dir)
+            anat_data = slc.anat_img.get_data()
+            plot_data = anat_data[slc.x_slice, slc.y_slice, slc.z_slice]
+            want_image = np.rot90(np.take(plot_data, 10, axis))
+            got_image = slc.axes.flat[10].images[0].get_array()
+            npt.assert_array_equal(want_image, got_image)
+            plt.close("all")

@@ -12,7 +12,8 @@ from .nipy import VolumeImg
 class Mosaic(object):
 
     def __init__(self, anat=None, stat=None, mask=None, n_col=9, step=2,
-                 tight=True, show_mask=True, stat_interp="continuous"):
+                 tight=True, show_mask=True, stat_interp="continuous",
+                 slice_dir="axial"):
         """Plot a mosaic of axial slices through an MRI volume.
 
         Parameters
@@ -43,6 +44,8 @@ class Mosaic(object):
         stat_interp : continuous | nearest
             The kind of interpolation to perform (if necessary) when
             reorienting the statistical image.
+        slice_dir : axial | coronal | sagital
+            Direction to slice the mosaic on.
 
         """
         # Load and reorient the anatomical image
@@ -114,24 +117,35 @@ class Mosaic(object):
         anat_fov = self.anat_img.get_data() > 1e-5
 
         # Find a field of view that tries to eliminate empty voxels
+        if slice_dir[0] not in "sca":
+            err = "Slice direction {} not understood".format(slice_dir)
+            raise ValueError(err)
+        fov_axes = dict(s=(1, 2), c=(0, 2), a=(0, 1))[slice_dir[0]]
+
         if mask is None or not tight:
             self.fov = fov = anat_fov
-            self.fov_slices = fov_slices = fov.any(axis=(0, 1))
+            self.fov_slices = fov_slices = fov.any(axis=fov_axes)
         else:
             self.fov = fov = anat_fov | mask_data
-            self.fov_slices = fov_slices = mask_data.any(axis=(0, 1))
+            self.fov_slices = fov_slices = mask_data.any(axis=fov_axes)
 
         # Save the mosaic parameters
         self.n_col = n_col
         self.step = step
+        self.slice_dir = slice_dir
 
         # Sort out the mosaics to focus on the brain and step properly
-        self.start = start = np.argwhere(fov_slices).min()
-        self.z_slice = slice(start, None, step)
         mask_x = np.argwhere(fov.any(axis=(1, 2)))
         self.x_slice = slice(max(mask_x.min() - 1, 0), mask_x.max() + 1)
         mask_y = np.argwhere(fov.any(axis=(0, 2)))
         self.y_slice = slice(max(mask_y.min() - 1, 0), mask_y.max() + 1)
+        mask_z = np.argwhere(fov.any(axis=(0, 1)))
+        self.z_slice = slice(max(mask_z.min() - 1, 0), mask_x.max() + 1)
+
+        start = np.argwhere(fov_slices).min()
+        mosaic_slice = slice(start, None, step)
+        slice_ax = dict(s="x", c="y", a="z")[slice_dir[0]]
+        setattr(self, slice_ax + "_slice", mosaic_slice)
 
         # Initialize the figure and plot the contant info
         self._setup_figure()
@@ -141,9 +155,10 @@ class Mosaic(object):
 
         # Label the anatomy
         if have_orientation:
-            self.fig.text(.01, .03, "L", size=14, color="w",
+            l_label, r_label = dict(s="PA", c="LR", a="LR")[self.slice_dir[0]]
+            self.fig.text(.01, .03, l_label, size=14, color="w",
                           ha="left", va="center")
-            self.fig.text(.99, .03, "R", size=14, color="w",
+            self.fig.text(.99, .03, r_label, size=14, color="w",
                           ha="right", va="center")
 
     def _setup_figure(self):
@@ -151,7 +166,13 @@ class Mosaic(object):
         n_slices = self.fov_slices.sum() // self.step
 
         n_row = np.ceil(n_slices / self.n_col)
-        nx, ny, _ = self.anat_data[self.x_slice, self.y_slice].shape
+        if self.slice_dir.startswith("s"):
+            slc_i, slc_j = self.y_slice, self.z_slice
+        elif self.slice_dir.startswith("c"):
+            slc_i, slc_j = self.x_slice, self.z_slice
+        elif self.slice_dir.startswith("a"):
+            slc_i, slc_j = self.x_slice, self.y_slice
+        nx, ny, _ = self.anat_data[slc_i, slc_j].shape
         figsize = self.n_col, (ny / nx) * n_row
         plot_kws = dict(nrows=int(n_row), ncols=int(self.n_col),
                         figsize=figsize, facecolor="k")
@@ -184,7 +205,10 @@ class Mosaic(object):
 
     def _map(self, func_name, data, **kwargs):
         """Apply a named function to a 3D volume of data on each axes."""
-        slices = data.transpose(2, 0, 1)
+        trans_order = dict(s=(0, 1, 2),
+                           c=(1, 0, 2),
+                           a=(2, 0, 1))[self.slice_dir[0]]
+        slices = data.transpose(*trans_order)
         for slice, ax in zip(slices, self.axes.flat):
             func = getattr(ax, func_name)
             func(np.rot90(slice), **kwargs)
