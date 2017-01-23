@@ -48,9 +48,9 @@ VERSION = tuple(map(int, __version__.split('.')))
 __all__ = ('Bunch', 'bunchify','unbunchify',)
 
 
-import platform
+import sys
 
-_IS_PYTHON_3 = (platform.version() >= '3')
+_IS_PYTHON_3 = sys.version_info.major >= 3
 
 identity = lambda x : x
 
