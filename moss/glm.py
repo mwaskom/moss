@@ -303,7 +303,7 @@ class DesignMatrix(object):
         """
         self.tr = tr
         if hrf_model is None:
-            hrf_model = GammaDifferenceHRF(tr=tr)
+            hrf_model = GammaDifferenceHRF(tr=tr, oversampling=oversampling)
 
         # Try to infer the timepoints from passed regressors or confounds
         if ntp is None:
