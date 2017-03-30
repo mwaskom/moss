@@ -67,7 +67,7 @@ class PsychophysicsModel(object):
         """Resamplea and re-fit to estimate parameter confidence intervals."""
         raise NotImplementedError
 
-    def _plot(self, y_var, pred_func, plot_zero, color, label,
+    def _plot(self, y_var, pred_func, plot_zero, color, label, logx,
               data_kws, line_kws, ax):
 
         if ax is None:
@@ -94,9 +94,12 @@ class PsychophysicsModel(object):
 
         plot_data = self.fit_data.copy()
 
-        x_ticks, x_labels = log0_safe_xticks(plot_data["x"])
-        x_lim = plot_limits(plot_data["x"])
-        xx = np.logspace(*np.log(x_lim), base=np.e, num=100)
+        if logx:
+            x_ticks, x_labels = log0_safe_xticks(plot_data["x"])
+            x_lim = plot_limits(plot_data["x"])
+            xx = np.logspace(*np.log(x_lim), base=np.e, num=100)
+        else:
+            x_lim = plot_limits(plot_data["x"], logsteps=False)
 
         if not plot_zero:
             plot_data = plot_data.query("x > 0")
@@ -113,12 +116,16 @@ class PsychophysicsModel(object):
         yy = pred_func(xx)
         ax.plot(xx, yy, **line_kws)
 
-        ax.set_xscale("log")
-        ax.set_xticks([], minor=True)
-        ax.set(xlim=x_lim,
-               xticks=x_ticks,
-               xticklabels=x_labels,
-               xlabel=self._x_name)
+        if logx:
+            ax.set_xscale("log")
+            ax.set_xticks([], minor=True)
+            ax.set(xlim=x_lim,
+                   xticks=x_ticks,
+                   xticklabels=x_labels,
+                   xlabel=self._x_name)
+        else:
+            ax.set(xlim=x_lim,
+                   xlabel=self._x_name)
 
         return ax
 
@@ -143,7 +150,7 @@ class PsychometricModel(PsychophysicsModel):
         """Use fitted parameters to predict proportion correct."""
         raise NotImplementedError
 
-    def plot(self, color=None, label=None,
+    def plot(self, color=None, label=None, logx=False,
              data_kws=None, line_kws=None, ax=None):
 
         ax = self._plot("pc",
@@ -151,6 +158,7 @@ class PsychometricModel(PsychophysicsModel):
                         plot_zero=False,
                         color=color,
                         label=label,
+                        logx=logx,
                         data_kws=data_kws,
                         line_kws=line_kws,
                         ax=ax)
