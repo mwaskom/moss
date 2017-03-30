@@ -194,7 +194,7 @@ class ChronometricModel(PsychophysicsModel):
         """Use fitted parameters to predict RT."""
         raise NotImplementedError
 
-    def plot(self, color=None, label=None,
+    def plot(self, color=None, label=None, logx=False,
              data_kws=None, line_kws=None, ax=None):
 
         ax = self._plot("rt",
@@ -202,6 +202,7 @@ class ChronometricModel(PsychophysicsModel):
                         plot_zero=True,
                         color=color,
                         label=label,
+                        logx=logx,
                         data_kws=data_kws,
                         line_kws=line_kws,
                         ax=ax)
