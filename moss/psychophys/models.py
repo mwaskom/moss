@@ -100,6 +100,7 @@ class PsychophysicsModel(object):
             xx = np.logspace(*np.log(x_lim), base=np.e, num=100)
         else:
             x_lim = plot_limits(plot_data["x"], logsteps=False)
+            xx = np.linspace(*x_lim, num=100)
 
         if not plot_zero:
             plot_data = plot_data.query("x > 0")
