@@ -9,9 +9,9 @@ import pandas as pd
 
 from scipy import stats
 from scipy.optimize import minimize
-from statsmodels.tools import numdiff
+#from statsmodels.tools import numdiff
 
-import seaborn.apionly as sns
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 from .params import ParamSet
