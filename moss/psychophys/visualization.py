@@ -15,6 +15,8 @@ def log0_safe_xticks(x, logsteps=True):
         step_size = np.median(dx[1:])
         log_values[0] = log_values[1] - step_size 
         values = np.exp(log_values)
+    else:
+        values = orig_values
 
     return values, orig_values
 
