@@ -21,7 +21,7 @@ def log0_safe_xticks(x, logsteps=True):
 
 def plot_limits(x, logsteps=True, pad=.3):
     """Get limits for a psychophysics plot while handling log(0)."""
-    values, _ = log0_safe_xticks(x)
+    values, _ = log0_safe_xticks(x, logsteps)
 
     if logsteps:
         log_values = np.log(values)
