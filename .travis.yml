@@ -11,6 +11,7 @@ install:
   - conda install --yes ipython numpy scipy nose pytest matplotlib pandas statsmodels scikit-learn six
   - pip install seaborn
   - pip install nibabel
+  - pip install nose-exclude
   - pip install .
 
 before_install:
@@ -23,4 +24,4 @@ before_install:
   - conda update -q conda
   - conda info -a
 
-script: nosetests
+script: nosetests --exclude-dir=moss/psychophys/tests/
