@@ -570,6 +570,34 @@ def vectorized_correlation(x, y):
     return r
 
 
+def truncated_sample(rv, size=1, min=-np.inf, max=np.inf, **kwargs):
+    """Iteratively sample from a random variate rejecting values outside limits.
+
+    Parameters
+    ----------
+    rv : random variate object
+        Must have a ``.rvs`` method for generating random samples.
+    size : int or tuple, optional
+        Output shape.
+    min, max : float
+        Exclusive limits on the distribution values.
+    kwargs : key, value mappings
+        Other keyword arguments are passed to ``rv.rvs()``.
+
+    Returns
+    -------
+    out : array
+        Samples from ``rv`` that are within (min, max).
+
+    """
+    out = np.empty(np.prod(size))
+    replace = np.ones(np.prod(size), np.bool)
+    while replace.any():
+        out[replace] = rv.rvs(replace.sum(), **kwargs)
+        replace = (out < min) | (out > max)
+    return out.reshape(size)
+
+
 def percent_change(ts, n_runs=1):
     """Convert to percent signal change by run.
 
