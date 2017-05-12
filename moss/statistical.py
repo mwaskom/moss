@@ -573,6 +573,8 @@ def vectorized_correlation(x, y):
 def truncated_sample(rv, size=None, min=-np.inf, max=np.inf, **kwargs):
     """Iteratively sample from a random variate rejecting values outside limits.
 
+    # TODO ADD A TEST
+
     Parameters
     ----------
     rv : random variate object
@@ -590,14 +592,16 @@ def truncated_sample(rv, size=None, min=-np.inf, max=np.inf, **kwargs):
         Samples from ``rv`` that are within (min, max).
 
     """
-    out = np.empty(np.prod(size))
-    replace = np.ones(np.prod(size), np.bool)
+    sample_size = 1 if size is None else np.prod(size)
+    out = np.empty(sample_size)
+    replace = np.ones(sample_size, np.bool)
     while replace.any():
         out[replace] = rv.rvs(replace.sum(), **kwargs)
         replace = (out < min) | (out > max)
     if size is None:
         return out.item()
-    return out.reshape(size)
+    else:
+        return out.reshape(size)
 
 
 def percent_change(ts, n_runs=1):
