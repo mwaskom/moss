@@ -570,7 +570,7 @@ def vectorized_correlation(x, y):
     return r
 
 
-def truncated_sample(rv, size=1, min=-np.inf, max=np.inf, **kwargs):
+def truncated_sample(rv, size=None, min=-np.inf, max=np.inf, **kwargs):
     """Iteratively sample from a random variate rejecting values outside limits.
 
     Parameters
@@ -595,6 +595,8 @@ def truncated_sample(rv, size=1, min=-np.inf, max=np.inf, **kwargs):
     while replace.any():
         out[replace] = rv.rvs(replace.sum(), **kwargs)
         replace = (out < min) | (out > max)
+    if size is None:
+        return out.item()
     return out.reshape(size)
 
 
