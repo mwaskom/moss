@@ -234,7 +234,7 @@ class DesignMatrix(object):
     - main_submatrix
         The condition evs that are created from the experimental design
         along with any continuous regressors or interest. If the HRF
-        model includes a temporal derivative, those columns are not
+        model includes a temporal derivative, those columns are also
         included in this submatrix.
     - condition_submatrix
         Only the condition ev columns.
@@ -404,7 +404,9 @@ class DesignMatrix(object):
         # Now build the column name lists that will let us index
         # into the submatrices
         conf_names, art_names = [], []
-        main_names = self._condition_names.tolist()
+        condition_names = self._condition_names.tolist()
+        main_names = [n for n in X.columns
+                      if any([n.startswith(c) for c in condition_names])]
         if regressors is not None:
             main_names += regressors.columns.tolist()
             pp_heights += (regressors.max() - regressors.min()).tolist()

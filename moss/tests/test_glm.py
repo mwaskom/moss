@@ -270,7 +270,7 @@ def test_design_matrix_size():
     X6 = glm.DesignMatrix(design, hrf2, 20, regressors=regressors,
                           confounds=confounds)
     nt.assert_equal(X6.design_matrix.shape, (20, 9))
-    nt.assert_equal(X6.main_submatrix.shape, (20, 4))
+    nt.assert_equal(X6.main_submatrix.shape, (20, 6))
     nt.assert_equal(X6.condition_submatrix.shape, (20, 2))
     nt.assert_equal(X6.confound_submatrix.shape, (20, 3))
 
