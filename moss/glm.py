@@ -326,7 +326,8 @@ class DesignMatrix(object):
         # The design portion is optional
         if design is None:
             conditions = None
-            self._condition_names = pd.Series([], name="conditions")
+            self._condition_names = pd.Series([], name="conditions",
+                                              dtype=object)
             pp_heights = []
             self.design = design
         else:
