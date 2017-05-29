@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 import shutil
+import mimetypes
 
 import numpy as np
 import pandas as pd
@@ -9,10 +10,7 @@ import pandas as pd
 
 class EyeData(object):
 
-    def __init__(self, edf_file=None, asc_file=None):
-
-        if edf_file is None and asc_file is None:
-            raise ValueError("Must pass either EDF or ASCII file")
+    def __init__(self, fname):
 
         self.settings = dict(PRESCALER=None,
                              VPRESCALER=None,
@@ -28,11 +26,13 @@ class EyeData(object):
         self.blinks = []
 
         # Obtain eye data in ASCII format
-        if asc_file is None:
-            temp_dir = tempfile.mkdtemp()
-            asc_file = self.edf_to_asc(edf_file, temp_dir)
-        else:
+        type, encoding = mimetypes.guess_type(fname)
+        if type == "text/plain":
             temp_dir = None
+            asc_file = fname
+        else:
+            temp_dir = tempfile.mkdtemp()
+            asc_file = self.edf_to_asc(fname, temp_dir)
 
         # Process the eye data file
         self.parse_asc_file(asc_file)
