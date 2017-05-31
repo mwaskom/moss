@@ -34,7 +34,7 @@ def test_paramset_series_initialization(initial_params_series):
     p = params.ParamSet(initial_params_series)
     pdt.assert_series_equal(p.params, initial_params_series)
     pdt.assert_series_equal(p.free, initial_params_series)
-    pdt.assert_series_equal(p.fixed, pd.Series([]))
+    pdt.assert_series_equal(p.fixed, pd.Series({}))
 
 
 def test_paramset_dict_initialization(initial_params_dict):
@@ -43,7 +43,7 @@ def test_paramset_dict_initialization(initial_params_dict):
     params_series = pd.Series(initial_params_dict)
     pdt.assert_series_equal(p.params, params_series)
     pdt.assert_series_equal(p.free, params_series)
-    pdt.assert_series_equal(p.fixed, pd.Series([]))
+    pdt.assert_series_equal(p.fixed, pd.Series({}))
 
 
 def test_paramset_fixed_initialization(initial_params_series):
