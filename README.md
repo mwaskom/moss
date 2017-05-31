@@ -21,8 +21,6 @@ Dependencies
 
 - [pandas](http://pandas.pydata.org/)
 
-- [statsmodels](http://statsmodels.sourceforge.net/)
-
 - [scikit-learn](http://scikit-learn.org/stable/)
 
 - [six](http://pythonhosted.org/six/)

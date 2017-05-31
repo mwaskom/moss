@@ -4,7 +4,6 @@ import numpy as np
 from scipy import stats
 from scipy.interpolate import interp1d
 import pandas as pd
-import statsmodels.api as sm
 from six.moves import range
 
 
@@ -148,6 +147,25 @@ def percentiles(a, pcts, axis=None):
     return scores
 
 
+def percentile_score(null, real):
+    """Vectorized function for computing percentile of score."""
+    if np.isscalar(real):
+        return stats.percentileofscore(null, real)
+
+    elif np.ndim(null) == 1:
+        percentiles = []
+        for real_i in real:
+            percentiles.append(stats.percentileofscore(null, real_i, "mean"))
+
+    elif np.ndim(null) == 2:
+        assert len(null) == len(real)
+        for null_i, real_i in zip(null, real):
+            percentiles.append(stats.percentileofscore(null_i, real_i, "mean"))
+        assert len(percentiles) == len(real)
+
+    return np.array(percentiles)
+
+
 def vector_reject(x, y):
     """Remove y from x using vector rejection."""
     x = np.asarray(x).astype(float).reshape((-1, 1))
@@ -235,13 +253,11 @@ def randomize_onesample(a, n_iter=10000, h_0=0, corrected=True,
 
     obs_t = a.mean(axis=0) / (a.std(axis=0) / err_denom)
     if corrected:
-        cdf = sm.distributions.ECDF(t_dist.max(axis=0))
-        obs_p = 1 - cdf(obs_t)
+        obs_p = 1 - percentile_score(t_dist.max(axis=0), obs_t) / 100
     else:
         obs_p = []
         for obs_i, null_i in zip(obs_t, t_dist):
-            cdf = sm.distributions.ECDF(null_i)
-            obs_p.append(1 - cdf(obs_i))
+            obs_p.append(1 - percentile_score(null_i, obs_i) / 100)
         obs_p = np.array(obs_p)
 
     if a.shape[1] == 1:
@@ -314,31 +330,29 @@ def randomize_corrmat(a, tail="both", corrected=True, n_iter=1000,
         elif tail == "upper":
             max_dist = null_dist[upper_tri].max(axis=0)
 
-        cdf = sm.distributions.ECDF(max_dist)
-
         for i, j in zip(*upper_tri):
             observed = real_corr[i, j]
             if tail == "both":
-                p_ij = 1 - cdf(abs(observed))
+                p_ij = 1 - percentile_score(max_dist, abs(observed)) / 100
             elif tail == "lower":
-                p_ij = cdf(observed)
+                p_ij = percentile_score(max_dist, observed) / 100
             elif tail == "upper":
-                p_ij = 1 - cdf(observed)
+                p_ij = 1 - percentile_score(max_dist, observed) / 100
             p_mat[i, j] = p_ij
 
     else:
         for i, j in zip(*upper_tri):
 
             null_corrs = null_dist[i, j]
-            cdf = sm.distributions.ECDF(null_corrs)
 
             observed = real_corr[i, j]
             if tail == "both":
-                p_ij = 2 * (1 - cdf(abs(observed)))
+                p_ij = 1 - percentile_score(null_corrs, abs(observed)) / 100
+                p_ij *= 2
             elif tail == "lower":
-                p_ij = cdf(observed)
+                p_ij = percentile_score(null_corrs, observed) / 100
             elif tail == "upper":
-                p_ij = 1 - cdf(observed)
+                p_ij = 1 - percentile_score(null_corrs, observed) / 100
             p_mat[i, j] = p_ij
 
     # Make p matrix symettrical with nans on the diagonal
@@ -441,8 +455,8 @@ def randomize_classifier(data, model, n_iter=1000, cv_method="run",
     p_vals = []
     for i, dist_i in enumerate(null_dist.T):
         acc_i = cross_val_score(model, X[i], y, cv=cv).mean()
-        cdf_i = sm.distributions.ECDF(dist_i)
-        p_vals.append(1 - cdf_i(acc_i))
+        p_i = 1 - percentile_score(dist_i, acc_i) / 100
+        p_vals.append(p_i)
     p_vals = np.array(p_vals)
 
     if return_dist:

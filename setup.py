@@ -22,9 +22,8 @@ def check_dependencies():
 
     # Just make sure dependencies exist, I haven't rigorously
     # tested what the minimal versions that will work are
-    needed_deps = ["numpy", "scipy", "matplotlib",
-                   "sklearn", "pandas", "statsmodels", "patsy",
-                   "six", "seaborn"]
+    needed_deps = ["numpy", "scipy", "matplotlib", "seaborn",
+                   "sklearn", "pandas", "six"]
     missing_deps = []
     for dep in needed_deps:
         try:
@@ -34,8 +33,7 @@ def check_dependencies():
 
     if missing_deps:
         missing = (", ".join(missing_deps)
-                   .replace("sklearn", "scikit-learn")
-                   .replace("skimage", "scikit-image"))
+                   .replace("sklearn", "scikit-learn"))
         raise ImportError("Missing dependencies: %s" % missing)
 
 
