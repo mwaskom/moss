@@ -65,7 +65,6 @@ class EyeData(object):
         # Parse some settings
         sample_settings = self.settings["SAMPLES"]
         self.units = sample_settings.split()[0]
-
         m = re.search("RATE (\d+\.00)", sample_settings)
         self.sampling_rate = float(m.group(1))
 
@@ -225,48 +224,104 @@ class EyeData(object):
         Assumes that the timestamps have been converted to second resolution
         and the samples have been converted to degrees.
 
+        This replaces the ``saccades`` attribute that is originally populated
+        with the results of the Eyelink saccade detection algorithm; the Eyelink
+        data is copied to the ``eyelink_saccades`` attribute in this method.
+
         Parameters
         ----------
-        TODO
+        kernel_sigma : float
+            Standard deviation of the smoothing kernel, in milliseconds. Samples
+            are smoothed before eye movement velocity is computed.
+        start_thresh, end_thresh : float, float pairs
+            Each pair gives the velocity threshold and required duration for the
+            respective identification of saccade onsets and offsets.
 
         """
+        # Save a copy of the original eyelink saccades
+        if not hasattr(self, "eyelink_saccades"):
+            self.eyelink_saccades = self.saccades.copy()
+
+        # Compute smoothing kernel size in sample bin units
         dt = 1 / self.sampling_rate
         kernel_width = kernel_sigma / dt
 
+        # Extract gaze position
         xy = self.samples[["x", "y"]]
 
         # Smooth the gaze position data
         xy_s = xy.apply(gaussian_filter1d, args=(kernel_width,))
 
         # Compute velocity
-        v = xy_s.diff().apply(np.square).sum(axis=1).apply(np.sqrt).divide(dt)
+        v = (xy_s.diff()
+                 .apply(np.square)
+                 .sum(axis=1, skipna=False)
+                 .apply(np.sqrt)
+                 .divide(dt)
+                 .fillna(np.inf))
 
         # Identify saccade onsets
         start_window = int(start_thresh[1] / dt)
-        sthr = (v > start_thresh[0]).rolling(start_window, center=False).min()
-        ss = v.where(sthr.diff() == 1).dropna().index.values
+        sthr = (v > start_thresh[0]).rolling(start_window).min()
+        starts = xy.where(sthr.diff() == 1).dropna()
 
         # Identify saccade offsets
         end_window = int(end_thresh[1] / dt)
-        ethr = (v < end_thresh[0]).rolling(end_window, center=False).min()
-        se = v.where(ethr.diff() == -1).dropna().index.values
+        ethr = (v < end_thresh[0]).rolling(end_window).min()
+        ends = xy.where(ethr.diff() == 1).dropna()
 
-        # Remove overlapping saccades
-        # TODO these are saccades where the next saccade start time precedes
-        # the current saccade end time.
-        # We'll have to do this recursively in case there are multiple overlaps
+        # -- Parse each detected onset to identify the corresponding end
+        saccades = []
+        last_end_time = 0
+        for start_time, start_pos in starts.iterrows():
 
-        # Determine saccade start and end point
-        saccades = dict(start=ss,
-                        end=se,
-                        start_x=xy.loc[ss, "x"],
-                        start_y=xy.loc[ss, "y"],
-                        end_x=xy.loc[se, "x"],
-                        end_y=xy.loc[se, "y"])
-        saccades = pd.DataFrame(saccades, columns=["x", "y",
-                                                   "start_x", "start_y",
-                                                   "end_x", "end_y"])
-        # Compute amplitude, velocity, and angle
-        # TODO
+            if start_time < last_end_time:
+                # This is an acceration within a prior saccade that has not
+                # yet ended; skip
+                continue
 
+            ends = ends.loc[start_time:]
+            end = ends.iloc[0]
+            last_end_time = end.name
+
+            saccades.append([start_time,
+                             start_pos["x"],
+                             start_pos["y"],
+                             end.name,
+                             end["x"],
+                             end["y"]])
+
+        # Package the saccades into a dataframe
+        columns = ["start", "start_x", "start_y", "end", "end_x", "end_y"]
+        saccades = pd.DataFrame(saccades, columns=columns)
+
+        # -- Compute duration, amplitude, velocity, and angle
+
+        dx = saccades["end_x"] - saccades["start_x"]
+        dy = saccades["end_y"] - saccades["start_y"]
+        saccades["amplitude"] = np.sqrt(np.square(dx) + np.square(dy))
+
+        saccades["duration"] = saccades["end"] - saccades["start"]
+        saccades["velocity"] = saccades["amplitude"] / saccades["duration"]
+
+        saccades["angle"] = np.rad2deg(np.arctan2(dy, dx)) % 360
+
+        # Overwrite the saccade data structure with the new results
         self.saccades = saccades
+
+        return self
+
+    @property
+    def events(self):
+
+        event_types = ["fixations", "saccades", "blinks"]
+        events = pd.DataFrame(False,
+                              index=self.samples.index,
+                              columns=event_types)
+
+        for event in event_types:
+            event_data = getattr(self, event)
+            for _, ev in event_data.iterrows():
+                events.loc[ev.start:ev.end, event] = True
+
+        return events
