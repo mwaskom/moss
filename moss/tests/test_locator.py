@@ -13,11 +13,11 @@ def test_locate_peaks():
         raise SkipTest
 
     challenge = [
-        ([(60, 60, 50)], ("L Cereb WM", 95)),
         ([(62, 69, 50)], ("MFG", 20)),
         ([(31, 50, 27)], ("Parahip G, post", 30)),
         ([(26, 55, 27)], ("Temp Fus Ctx, post", 3)),
-        ([(29, 50, 30)], ("R Hippocampus", 95))]
+        ([(29, 50, 30)], ("R Hippocampus", 95))
+        ]
 
     for coord, res in challenge:
         res = dict(zip(["MaxProb Region", "Prob"], list(res)))
