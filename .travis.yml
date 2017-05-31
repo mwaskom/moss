@@ -24,4 +24,4 @@ before_install:
   - conda update -q conda
   - conda info -a
 
-script: nosetests --exclude-dir=moss/psychophys/tests/
+script: make test
