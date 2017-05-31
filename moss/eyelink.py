@@ -237,6 +237,13 @@ class EyeData(object):
             Each pair gives the velocity threshold and required duration for the
             respective identification of saccade onsets and offsets.
 
+        Note
+        ----
+        This method currently does not alter any information in the
+        ``fixations`` field , which retains the fixation onset and offset timing
+        assigned by the Eyelink algorithm. As a result, samples might end up
+        being tagged as both a "fixation" and a "saccade".
+
         """
         # Save a copy of the original eyelink saccades
         if not hasattr(self, "eyelink_saccades"):
