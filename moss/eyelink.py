@@ -288,7 +288,13 @@ class EyeData(object):
                 continue
 
             ends = ends.loc[start_time:]
-            end = ends.iloc[0]
+
+            # Check if the dataset is ending in the middle of a saccade
+            if ends.size:
+                end = ends.iloc[0]
+            else:
+                break
+
             last_end_time = end.name
 
             saccades.append([start_time,
