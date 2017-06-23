@@ -298,7 +298,7 @@ class Mosaic(object):
         if hasattr(self, "mask_img"):
             fov = self.mask_img.get_data()[self.x_slice,
                                            self.y_slice,
-                                           self.z_slice]
+                                           self.z_slice].astype(bool)
         else:
             fov = np.ones_like(stat_data).astype(bool)
 
