@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 from six import string_types
 
-from .nipy import VolumeImg
-
 
 class Mosaic(object):
 
@@ -62,10 +60,7 @@ class Mosaic(object):
         else:
             anat_img = anat
             have_orientation = True
-        self.anat_img = VolumeImg(anat_img.get_data(),
-                                  anat_img.affine,
-                                  world_space="mni",
-                                  ).xyz_ordered(resample=True)
+        self.anat_img = nib.as_closest_canonical(anat_img)
         self.anat_data = self.anat_img.get_data()
 
         # Load and reorient the statistical image
@@ -77,12 +72,8 @@ class Mosaic(object):
             else:
                 stat_img = stat
             stat_data = np.nan_to_num(stat_img.get_data().astype(np.float))
-            self.stat_img = VolumeImg(stat_data,
-                                      stat_img.affine,
-                                      world_space="mni",
-                                      interpolation=stat_interp,
-                                      ).xyz_ordered(resample=True)
-
+            stat_img = nib.Nifti1Image(stat_data, stat_img.affine)
+            self.stat_img = nib.as_closest_canonical(stat_img)
         # Load and reorient the mask image
         if mask is not None:
             if isinstance(mask, string_types):
@@ -91,12 +82,8 @@ class Mosaic(object):
                 mask_img = nib.Nifti1Image(mask, anat_img.affine)
             else:
                 mask_img = mask
-            self.mask_img = VolumeImg(mask_img.get_data().astype(bool),
-                                      mask_img.affine,
-                                      world_space="mni",
-                                      interpolation="nearest",
-                                      ).xyz_ordered(resample=True)
-            mask_data = self.mask_img.get_data()
+            self.mask_img = nib.as_closest_canonical(mask_img)
+            mask_data = self.mask_img.get_data().astype(bool)
         else:
             mask_data = None
 
@@ -410,8 +397,8 @@ class Mosaic(object):
             data_img = nib.Nifti1Image(data, np.eye(4))
         else:
             data_img = data
-        data = VolumeImg(data_img.get_data(), data_img.affine,
-                         "mni").xyz_ordered(resample=True).get_data()
+        data_img = nib.as_closest_canonical(data_img)
+        data = data_img.get_data()
         data = data.astype(np.float)
         if thresh is not None:
             data[data < thresh] = np.nan
