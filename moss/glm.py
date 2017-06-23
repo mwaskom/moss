@@ -694,13 +694,13 @@ class DesignMatrix(object):
 
     def to_pickle(self, fname):
         """Save the object as a pickle to a file."""
-        with open(fname, "w") as fid:
+        with open(fname, "wb") as fid:
             cPickle.dump(self, fid)
 
     @classmethod
     def from_pickle(cls, fname):
         """Load an object from a pickled file."""
-        with open(fname, "r") as fid:
+        with open(fname, "rb") as fid:
             return cPickle.load(fid)
 
     @property
