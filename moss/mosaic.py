@@ -413,7 +413,8 @@ class Mosaic(object):
         data = VolumeImg(data_img.get_data(), data_img.affine,
                          "mni").xyz_ordered(resample=True).get_data()
         data = data.astype(np.float)
-        data[data < thresh] = np.nan
+        if thresh is not None:
+            data[data < thresh] = np.nan
         data = data[self.x_slice, self.y_slice, self.z_slice]
         self._map(func_name, data, **kwargs)
 
