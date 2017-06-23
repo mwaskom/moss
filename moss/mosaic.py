@@ -5,12 +5,13 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
 from six import string_types
+import warnigns
 
 
 class Mosaic(object):
 
     def __init__(self, anat=None, stat=None, mask=None, n_col=9, step=2,
-                 tight=True, show_mask=True, stat_interp="continuous",
+                 tight=True, show_mask=True, stat_interp=None,
                  slice_dir="axial"):
         """Plot a mosaic of axial slices through an MRI volume.
 
@@ -39,13 +40,16 @@ class Mosaic(object):
         show_mask : bool
             If True, gray-out voxels in the anat image that are outside
             of the mask image.
-        stat_interp : continuous | nearest
-            The kind of interpolation to perform (if necessary) when
-            reorienting the statistical image.
         slice_dir : axial | coronal | sagital
             Direction to slice the mosaic on.
 
         """
+        # XXX handle stat_interp deprecation
+        if stat_interp is not None:
+            msg = ("The `stat_interp` parameter is no longer functional "
+                   "and will be removed in a future version.")
+            warnings.warn(msg, UserWarning)
+
         # Load and reorient the anatomical image
         if anat is None:
             if "FSLDIR" in os.environ:
