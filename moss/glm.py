@@ -683,10 +683,11 @@ class DesignMatrix(object):
             Cs = []
             for _, names, weights in contrasts:
                 Cs.append(self.contrast_vector(names, weights))
-            C_all = np.array(Cs)
+            C_all = pd.DataFrame(Cs)
 
             sio = StringIO()
-            np.savetxt(sio, C_all, fmt="%7.7g", delimiter=" ")
+            C_all.to_csv(sio, "\t", float_format="%7.7g",
+                         header=False, index=False)
 
             with open(fstem + ".con", "w") as fid:
                 fid.write(header)

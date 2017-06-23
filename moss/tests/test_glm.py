@@ -469,7 +469,20 @@ def test_design_matrix_with_fir():
     X2 = glm.DesignMatrix(design, glm.FIR(tr=1, offset=0), ntp=100,
                           tr=1, oversampling=1)
     nt.assert_equal(X2.shape, (100, 24))
-    
+
+
+def test_design_matrix_fsl_output():
+
+    # TODO this only tests a write without error to fix something on Python3
+    # But it would be nice to test for correctness!
+    design = pd.DataFrame(dict(onset=np.arange(0, 100, 10),
+                               condition=["event1", "event2"] * 5))
+
+    contrasts = [("subtraction", ["event1", "event2"], [1, -1])]
+
+    X = glm.DesignMatrix(design, ntp=100, tr=1)
+    X.to_fsl_files("/tmp/design", contrasts)
+
 
 def test_highpass_matrix_shape():
     """Test the filter matrix is the right shape."""
