@@ -11,4 +11,4 @@ coverage:
 lint:
 
 	pyflakes -x W moss
-	pep8 --exclude leastsqbound.py,nipy moss
+	pep8 --exclude external moss
