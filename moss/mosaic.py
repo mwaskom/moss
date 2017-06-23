@@ -5,14 +5,13 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
 from six import string_types
-
-from .nipy import VolumeImg
+import warnings
 
 
 class Mosaic(object):
 
     def __init__(self, anat=None, stat=None, mask=None, n_col=9, step=2,
-                 tight=True, show_mask=True, stat_interp="continuous",
+                 tight=True, show_mask=True, stat_interp=None,
                  slice_dir="axial"):
         """Plot a mosaic of axial slices through an MRI volume.
 
@@ -41,13 +40,16 @@ class Mosaic(object):
         show_mask : bool
             If True, gray-out voxels in the anat image that are outside
             of the mask image.
-        stat_interp : continuous | nearest
-            The kind of interpolation to perform (if necessary) when
-            reorienting the statistical image.
         slice_dir : axial | coronal | sagital
             Direction to slice the mosaic on.
 
         """
+        # XXX handle stat_interp deprecation
+        if stat_interp is not None:
+            msg = ("The `stat_interp` parameter is no longer functional "
+                   "and will be removed in a future version.")
+            warnings.warn(msg, UserWarning)
+
         # Load and reorient the anatomical image
         if anat is None:
             if "FSLDIR" in os.environ:
@@ -62,10 +64,7 @@ class Mosaic(object):
         else:
             anat_img = anat
             have_orientation = True
-        self.anat_img = VolumeImg(anat_img.get_data(),
-                                  anat_img.affine,
-                                  world_space="mni",
-                                  ).xyz_ordered(resample=True)
+        self.anat_img = nib.as_closest_canonical(anat_img)
         self.anat_data = self.anat_img.get_data()
 
         # Load and reorient the statistical image
@@ -77,12 +76,8 @@ class Mosaic(object):
             else:
                 stat_img = stat
             stat_data = np.nan_to_num(stat_img.get_data().astype(np.float))
-            self.stat_img = VolumeImg(stat_data,
-                                      stat_img.affine,
-                                      world_space="mni",
-                                      interpolation=stat_interp,
-                                      ).xyz_ordered(resample=True)
-
+            stat_img = nib.Nifti1Image(stat_data, stat_img.affine)
+            self.stat_img = nib.as_closest_canonical(stat_img)
         # Load and reorient the mask image
         if mask is not None:
             if isinstance(mask, string_types):
@@ -91,12 +86,8 @@ class Mosaic(object):
                 mask_img = nib.Nifti1Image(mask, anat_img.affine)
             else:
                 mask_img = mask
-            self.mask_img = VolumeImg(mask_img.get_data().astype(bool),
-                                      mask_img.affine,
-                                      world_space="mni",
-                                      interpolation="nearest",
-                                      ).xyz_ordered(resample=True)
-            mask_data = self.mask_img.get_data()
+            self.mask_img = nib.as_closest_canonical(mask_img)
+            mask_data = self.mask_img.get_data().astype(bool)
         else:
             mask_data = None
 
@@ -311,7 +302,7 @@ class Mosaic(object):
         if hasattr(self, "mask_img"):
             fov = self.mask_img.get_data()[self.x_slice,
                                            self.y_slice,
-                                           self.z_slice]
+                                           self.z_slice].astype(bool)
         else:
             fov = np.ones_like(stat_data).astype(bool)
 
@@ -410,8 +401,8 @@ class Mosaic(object):
             data_img = nib.Nifti1Image(data, np.eye(4))
         else:
             data_img = data
-        data = VolumeImg(data_img.get_data(), data_img.affine,
-                         "mni").xyz_ordered(resample=True).get_data()
+        data_img = nib.as_closest_canonical(data_img)
+        data = data_img.get_data()
         data = data.astype(np.float)
         if thresh is not None:
             data[data < thresh] = np.nan
