@@ -5,7 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
 from six import string_types
-import warnigns
+import warnings
 
 
 class Mosaic(object):
