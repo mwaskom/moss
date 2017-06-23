@@ -27,7 +27,7 @@ class TestMosaic(object):
 
     rs = np.random.RandomState(99)
     stat_data = mask_data.astype(np.float) * rs.normal(0, 1, mask_data.shape)
-    stat_img = nib.Nifti1Image(stat_data, mask_img.get_affine())
+    stat_img = nib.Nifti1Image(stat_data, mask_img.affine)
 
     def test_mosaic_init_path(self):
 
@@ -70,7 +70,7 @@ class TestMosaic(object):
         m1 = mosaic.Mosaic(self.anat_img, tight=False)
 
         full_img = nib.Nifti1Image(np.ones_like(self.anat_data),
-                                   self.anat_img.get_affine())
+                                   self.anat_img.affine)
         m2 = mosaic.Mosaic(full_img)
         nt.assert_equal(m1.axes.shape, m2.axes.shape)
         nt.assert_equal(m2.axes.flat[0].images[0].get_array().T.shape,

@@ -63,7 +63,7 @@ class Mosaic(object):
             anat_img = anat
             have_orientation = True
         self.anat_img = VolumeImg(anat_img.get_data(),
-                                  anat_img.get_affine(),
+                                  anat_img.affine,
                                   world_space="mni",
                                   ).xyz_ordered(resample=True)
         self.anat_data = self.anat_img.get_data()
@@ -73,12 +73,12 @@ class Mosaic(object):
             if isinstance(stat, string_types):
                 stat_img = nib.load(stat)
             elif isinstance(stat, np.ndarray):
-                stat_img = nib.Nifti1Image(stat, anat_img.get_affine())
+                stat_img = nib.Nifti1Image(stat, anat_img.affine)
             else:
                 stat_img = stat
             stat_data = np.nan_to_num(stat_img.get_data().astype(np.float))
             self.stat_img = VolumeImg(stat_data,
-                                      stat_img.get_affine(),
+                                      stat_img.affine,
                                       world_space="mni",
                                       interpolation=stat_interp,
                                       ).xyz_ordered(resample=True)
@@ -88,11 +88,11 @@ class Mosaic(object):
             if isinstance(mask, string_types):
                 mask_img = nib.load(mask)
             elif isinstance(mask, np.ndarray):
-                mask_img = nib.Nifti1Image(mask, anat_img.get_affine())
+                mask_img = nib.Nifti1Image(mask, anat_img.affine)
             else:
                 mask_img = mask
             self.mask_img = VolumeImg(mask_img.get_data().astype(bool),
-                                      mask_img.get_affine(),
+                                      mask_img.affine,
                                       world_space="mni",
                                       interpolation="nearest",
                                       ).xyz_ordered(resample=True)
@@ -410,10 +410,11 @@ class Mosaic(object):
             data_img = nib.Nifti1Image(data, np.eye(4))
         else:
             data_img = data
-        data = VolumeImg(data_img.get_data(), data_img.get_affine(),
+        data = VolumeImg(data_img.get_data(), data_img.affine,
                          "mni").xyz_ordered(resample=True).get_data()
         data = data.astype(np.float)
-        data[data < thresh] = np.nan
+        if thresh is not None:
+            data[data < thresh] = np.nan
         data = data[self.x_slice, self.y_slice, self.z_slice]
         self._map(func_name, data, **kwargs)
 
