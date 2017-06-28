@@ -175,15 +175,15 @@ class Mosaic(object):
     def _plot_anat(self):
         """Plot the anatomy in grayscale."""
         anat_data = self.anat_img.get_data()
-        vmin, vmax = 0, anat_data[self.fov].max()
+        vmin, vmax = 0, np.percentile(anat_data[self.fov], 99)
         anat_fov = anat_data[self.x_slice, self.y_slice, self.z_slice]
-        self._map("imshow", anat_fov, cmap="Greys_r", vmin=vmin, vmax=vmax)
+        self._map("imshow", anat_fov, cmap="gray", vmin=vmin, vmax=vmax)
 
         empty_slices = len(self.axes.flat) - anat_fov.shape[2]
         if empty_slices > 0:
             i, j, _ = anat_fov.shape
             for ax in self.axes.flat[-empty_slices:]:
-                ax.imshow(np.zeros((i, j)), cmap="Greys_r", vmin=0, vmax=10)
+                ax.imshow(np.zeros((i, j)), cmap="gray", vmin=0, vmax=10)
 
     def _plot_inverse_mask(self):
         """Dim the voxels outside of the statistical analysis FOV."""
