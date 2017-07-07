@@ -11,7 +11,7 @@ intended to be written in as general and lightweight a fashion as possible.
 Dependencies
 ------------
 
-- Python 2.7
+- Python 2.7 or 3.6
 
 - [numpy](http://www.numpy.org/)
 
