@@ -1,8 +1,7 @@
 #! /usr/bin/env python
 #
-# Copyright (C) 2012 Michael Waskom <mwaskom@stanford.edu>
-
-descr = """Moss: statistical utilities for neuroimaging and cognitive science"""
+# Copyright (C) 2012-2017 Michael Waskom <mwaskom@nyu.edu>
+descr = """Moss: statistical utilities for cognitive neuroscience."""
 
 import os
 
@@ -10,11 +9,11 @@ import os
 DISTNAME = 'moss'
 DESCRIPTION = descr
 MAINTAINER = 'Michael Waskom'
-MAINTAINER_EMAIL = 'mwaskom@stanford.edu'
+MAINTAINER_EMAIL = 'mwaskom@nyu.edu'
 LICENSE = 'BSD (3-clause)'
 URL = 'https://github.com/mwaskom/moss'
 DOWNLOAD_URL = 'https://github.com/mwaskom/moss'
-VERSION = '0.5.dev'
+VERSION = '0.5'
 
 from setuptools import setup
 
@@ -22,8 +21,8 @@ def check_dependencies():
 
     # Just make sure dependencies exist, I haven't rigorously
     # tested what the minimal versions that will work are
-    needed_deps = ["numpy", "scipy", "matplotlib", "seaborn",
-                   "sklearn", "pandas", "six"]
+    needed_deps = ["numpy", "pandas", "scipy", "sklearn",
+                   "matplotlib", "seaborn", "six"]
     missing_deps = []
     for dep in needed_deps:
         try:
@@ -32,8 +31,7 @@ def check_dependencies():
             missing_deps.append(dep)
 
     if missing_deps:
-        missing = (", ".join(missing_deps)
-                   .replace("sklearn", "scikit-learn"))
+        missing = ", ".join(missing_deps)
         raise ImportError("Missing dependencies: %s" % missing)
 
 
@@ -60,7 +58,8 @@ if __name__ == "__main__":
         packages=['moss', 'moss.tests', 'moss.psychophys', 'moss.external'],
         scripts=["bin/" + s for s in ["check_mni_reg", "recon_movie",
                                       "recon_status", "recon_qc",
-                                      "recon_process_stats", "ts_movie"]],
+                                      "recon_process_stats", "warp_qc",
+                                      "ts_movie"]],
         classifiers=['Intended Audience :: Science/Research',
                      'Programming Language :: Python',
                      'License :: OSI Approved',
