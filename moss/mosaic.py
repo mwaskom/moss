@@ -1,6 +1,7 @@
 from __future__ import division
 import os
 import numpy as np
+from scipy import ndimage
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -91,54 +92,34 @@ class Mosaic(object):
         else:
             mask_data = None
 
-        # Re-mask the anat and stat images
-        # This is only really useful when the image affines had rotations
-        # and thus we needed to interpolate
-        if mask_data is not None:
-            if stat is not None:
-                self.stat_img._data[~mask_data] = 0
-
-            # Use an implicit/explicit mask to zero out very dim voxels
-            # This helps deal with the interpolation error for non-MNI
-            # data which otherwise causes a weird ring around the brain
-            thresh = np.percentile(self.anat_data[mask_data], 98) * .05
-            self.anat_img._data[self.anat_data < thresh] = 0
-
-        # Find a field of view with nonzero anat voxels
-        anat_fov = self.anat_img.get_data() > 1e-5
-
-        # Find a field of view that tries to eliminate empty voxels
         if slice_dir[0] not in "sca":
             err = "Slice direction {} not understood".format(slice_dir)
             raise ValueError(err)
-        fov_axes = dict(s=(1, 2), c=(0, 2), a=(0, 1))[slice_dir[0]]
 
+        # Find a field of view that tries to eliminate empty voxels
+        anat_fov = self.anat_img.get_data() > 1e-5
         if mask is None or not tight:
-            self.fov = fov = anat_fov
-            self.fov_slices = fov_slices = fov.any(axis=fov_axes)
+            self.fov = anat_fov
         else:
-            self.fov = fov = anat_fov | mask_data
-            self.fov_slices = fov_slices = mask_data.any(axis=fov_axes)
+            self.fov = anat_fov | mask_data
 
         # Save the mosaic parameters
         self.n_col = n_col
         self.step = step
         self.slice_dir = slice_dir
 
-        # Sort out the mosaics to focus on the brain and step properly
-        mask_x = np.argwhere(fov.any(axis=(1, 2)))
-        self.x_slice = slice(max(mask_x.min() - 1, 0), mask_x.max() + 1)
-        mask_y = np.argwhere(fov.any(axis=(0, 2)))
-        self.y_slice = slice(max(mask_y.min() - 1, 0), mask_y.max() + 1)
-        mask_z = np.argwhere(fov.any(axis=(0, 1)))
-        self.z_slice = slice(max(mask_z.min() - 1, 0), mask_x.max() + 1)
+        # Define slice objects to crop to the volume
+        slices, = ndimage.find_objects(self.fov)
+        self.x_slice, self.y_slice, self.z_slice = slices
 
-        start = np.argwhere(fov_slices).min()
-        mosaic_slice = slice(start, None, step)
+        # Update the slice on the mosiac axis with steps
         slice_ax = dict(s="x", c="y", a="z")[slice_dir[0]]
+        ms = getattr(self, slice_ax + "_slice")
+        mosaic_slice = slice(ms.start, ms.stop, step)
         setattr(self, slice_ax + "_slice", mosaic_slice)
+        self.n_slices = (ms.stop - ms.start) // step
 
-        # Initialize the figure and plot the contant info
+        # Initialize the figure and plot the constant info
         self._setup_figure()
         self._plot_anat()
         if mask is not None and show_mask:
@@ -154,9 +135,7 @@ class Mosaic(object):
 
     def _setup_figure(self):
         """Initialize the figure and axes."""
-        n_slices = self.fov_slices.sum() // self.step
-
-        n_row = np.ceil(n_slices / self.n_col)
+        n_row = np.ceil(self.n_slices / self.n_col)
         if self.slice_dir.startswith("s"):
             slc_i, slc_j = self.y_slice, self.z_slice
         elif self.slice_dir.startswith("c"):
