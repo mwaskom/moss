@@ -35,9 +35,9 @@ class Mosaic(object):
         n_col : int
             Number of columns in the mosaic.
         step : int
-            Take every ``step`` slices along the z axis when plotting.
-        tight_z : bool
-            If True, only show slices that have voxels inside the mask.
+            Take every ``step`` slices along the slice_dir for the mosaic.
+        tight : bool
+            If True, try to crop panes to focus on the brain volume.
         show_mask : bool
             If True, gray-out voxels in the anat image that are outside
             of the mask image.
@@ -98,7 +98,9 @@ class Mosaic(object):
 
         # Find a field of view that tries to eliminate empty voxels
         anat_fov = self.anat_img.get_data() > 1e-5
-        if mask is None or not tight:
+        if tight:
+            self.fov = np.ones_like(anat_fov)
+        elif mask is None:
             self.fov = anat_fov
         else:
             self.fov = anat_fov | mask_data
@@ -185,7 +187,7 @@ class Mosaic(object):
 
     def plot_activation(self, thresh=2, vmin=None, vmax=None, vmax_perc=99,
                         vfloor=None, pos_cmap="Reds_r", neg_cmap=None,
-                        alpha=1, fmt="%.2g"):
+                        alpha=1, fmt=".2g"):
         """Plot the stat image as uni- or bi-polar activation with a threshold.
 
         Parameters
@@ -207,8 +209,8 @@ class Mosaic(object):
             The colormapping for the positive and negative overlays.
         alpha : float
             The transparancy of the overlay.
-        fmt : %-style format string
-            Format of the colormap annotation
+        fmt : {}-style format key
+            Format of the colormap annotation.
 
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
@@ -246,7 +248,7 @@ class Mosaic(object):
 
     def plot_overlay(self, cmap, vmin=None, vmax=None, center=False,
                      vmin_perc=1, vmax_perc=99, thresh=None,
-                     alpha=1, fmt="%.2g", colorbar=True):
+                     alpha=1, fmt=".2g", colorbar=True):
         """Plot the stat image as a single overlay with a threshold.
 
         Parameters
@@ -269,8 +271,8 @@ class Mosaic(object):
             between -thresh and thresh.
         alpha : float
             The transparancy of the overlay.
-        fmt : %-style format string
-            Format of the colormap annotation
+        fmt : {}-style format string
+            Format of the colormap annotation.
         colorbar : bool
             If true, add a colorbar.
 
@@ -414,9 +416,11 @@ class Mosaic(object):
         bar_data = np.linspace(0, 1, 256).reshape(1, 256)
         cbar_ax.pcolormesh(bar_data, cmap=cmap)
 
-        self.fig.text(.29, .005 + cbar_height * .5, fmt % vmin,
+        fmt = "{:" + fmt + "}"
+
+        self.fig.text(.29, .005 + cbar_height * .5, fmt.format(vmin),
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.71, .005 + cbar_height * .5, fmt % vmax,
+        self.fig.text(.71, .005 + cbar_height * .5, fmt.format(vmax),
                       color="white", size=14, ha="left", va="center")
 
     def _add_double_colorbar(self, vmin, vmax, pos_cmap, neg_cmap, fmt):
@@ -449,7 +453,6 @@ class Mosaic(object):
 
     def _get_cmap(self, cmap):
         """Parse a string spec of a cubehelix palette."""
-        from seaborn import cubehelix_palette
         if isinstance(cmap, string_types):
             if cmap.startswith("cube"):
                 if cmap.endswith("_r"):
@@ -458,12 +461,13 @@ class Mosaic(object):
                 else:
                     reverse = True
                 _, start, rot = cmap.split(":")
-                cmap = cubehelix_palette(as_cmap=True,
-                                         start=float(start),
-                                         rot=float(rot),
-                                         light=.95,
-                                         dark=0,
-                                         reverse=reverse)
+                cube_rgb = mpl._cm.cubehelix(s=float(start),
+                                             r=float(rot))
+                cube_cmap = mpl.colors.LinearSegmentedColormap(cmap, cube_rgb)
+                lut = cube_cmap(np.linspace(.95, 0, 256))
+                if reverse:
+                    lut = lut[::-1]
+                cmap = mpl.colors.ListedColormap(lut)
         return cmap
 
     def savefig(self, fname, **kwargs):
