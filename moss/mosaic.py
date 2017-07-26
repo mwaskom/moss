@@ -1,6 +1,7 @@
 from __future__ import division
 import os
 import numpy as np
+from scipy import ndimage
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -34,9 +35,9 @@ class Mosaic(object):
         n_col : int
             Number of columns in the mosaic.
         step : int
-            Take every ``step`` slices along the z axis when plotting.
-        tight_z : bool
-            If True, only show slices that have voxels inside the mask.
+            Take every ``step`` slices along the slice_dir for the mosaic.
+        tight : bool
+            If True, try to crop panes to focus on the brain volume.
         show_mask : bool
             If True, gray-out voxels in the anat image that are outside
             of the mask image.
@@ -91,54 +92,36 @@ class Mosaic(object):
         else:
             mask_data = None
 
-        # Re-mask the anat and stat images
-        # This is only really useful when the image affines had rotations
-        # and thus we needed to interpolate
-        if mask_data is not None:
-            if stat is not None:
-                self.stat_img._data[~mask_data] = 0
-
-            # Use an implicit/explicit mask to zero out very dim voxels
-            # This helps deal with the interpolation error for non-MNI
-            # data which otherwise causes a weird ring around the brain
-            thresh = np.percentile(self.anat_data[mask_data], 98) * .05
-            self.anat_img._data[self.anat_data < thresh] = 0
-
-        # Find a field of view with nonzero anat voxels
-        anat_fov = self.anat_img.get_data() > 1e-5
-
-        # Find a field of view that tries to eliminate empty voxels
         if slice_dir[0] not in "sca":
             err = "Slice direction {} not understood".format(slice_dir)
             raise ValueError(err)
-        fov_axes = dict(s=(1, 2), c=(0, 2), a=(0, 1))[slice_dir[0]]
 
-        if mask is None or not tight:
-            self.fov = fov = anat_fov
-            self.fov_slices = fov_slices = fov.any(axis=fov_axes)
+        # Find a field of view that tries to eliminate empty voxels
+        anat_fov = self.anat_img.get_data() > 1e-5
+        if tight:
+            self.fov = anat_fov
+            if mask is not None:
+                self.fov &= mask_data
         else:
-            self.fov = fov = anat_fov | mask_data
-            self.fov_slices = fov_slices = mask_data.any(axis=fov_axes)
+            self.fov = np.ones_like(anat_fov)
 
         # Save the mosaic parameters
         self.n_col = n_col
         self.step = step
         self.slice_dir = slice_dir
 
-        # Sort out the mosaics to focus on the brain and step properly
-        mask_x = np.argwhere(fov.any(axis=(1, 2)))
-        self.x_slice = slice(max(mask_x.min() - 1, 0), mask_x.max() + 1)
-        mask_y = np.argwhere(fov.any(axis=(0, 2)))
-        self.y_slice = slice(max(mask_y.min() - 1, 0), mask_y.max() + 1)
-        mask_z = np.argwhere(fov.any(axis=(0, 1)))
-        self.z_slice = slice(max(mask_z.min() - 1, 0), mask_x.max() + 1)
+        # Define slice objects to crop to the volume
+        slices, = ndimage.find_objects(self.fov)
+        self.x_slice, self.y_slice, self.z_slice = slices
 
-        start = np.argwhere(fov_slices).min()
-        mosaic_slice = slice(start, None, step)
+        # Update the slice on the mosiac axis with steps
         slice_ax = dict(s="x", c="y", a="z")[slice_dir[0]]
+        ms = getattr(self, slice_ax + "_slice")
+        mosaic_slice = slice(ms.start, ms.stop, step)
         setattr(self, slice_ax + "_slice", mosaic_slice)
+        self.n_slices = (ms.stop - ms.start) // step
 
-        # Initialize the figure and plot the contant info
+        # Initialize the figure and plot the constant info
         self._setup_figure()
         self._plot_anat()
         if mask is not None and show_mask:
@@ -154,9 +137,7 @@ class Mosaic(object):
 
     def _setup_figure(self):
         """Initialize the figure and axes."""
-        n_slices = self.fov_slices.sum() // self.step
-
-        n_row = np.ceil(n_slices / self.n_col)
+        n_row = np.ceil(self.n_slices / self.n_col)
         if self.slice_dir.startswith("s"):
             slc_i, slc_j = self.y_slice, self.z_slice
         elif self.slice_dir.startswith("c"):
@@ -206,7 +187,7 @@ class Mosaic(object):
 
     def plot_activation(self, thresh=2, vmin=None, vmax=None, vmax_perc=99,
                         vfloor=None, pos_cmap="Reds_r", neg_cmap=None,
-                        alpha=1, fmt="%.2g"):
+                        alpha=1, fmt=".2g"):
         """Plot the stat image as uni- or bi-polar activation with a threshold.
 
         Parameters
@@ -228,8 +209,8 @@ class Mosaic(object):
             The colormapping for the positive and negative overlays.
         alpha : float
             The transparancy of the overlay.
-        fmt : %-style format string
-            Format of the colormap annotation
+        fmt : {}-style format key
+            Format of the colormap annotation.
 
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
@@ -267,7 +248,7 @@ class Mosaic(object):
 
     def plot_overlay(self, cmap, vmin=None, vmax=None, center=False,
                      vmin_perc=1, vmax_perc=99, thresh=None,
-                     alpha=1, fmt="%.2g", colorbar=True):
+                     alpha=1, fmt=".2g", colorbar=True):
         """Plot the stat image as a single overlay with a threshold.
 
         Parameters
@@ -290,8 +271,8 @@ class Mosaic(object):
             between -thresh and thresh.
         alpha : float
             The transparancy of the overlay.
-        fmt : %-style format string
-            Format of the colormap annotation
+        fmt : {}-style format string
+            Format of the colormap annotation.
         colorbar : bool
             If true, add a colorbar.
 
@@ -435,9 +416,11 @@ class Mosaic(object):
         bar_data = np.linspace(0, 1, 256).reshape(1, 256)
         cbar_ax.pcolormesh(bar_data, cmap=cmap)
 
-        self.fig.text(.29, .005 + cbar_height * .5, fmt % vmin,
+        fmt = "{:" + fmt + "}"
+
+        self.fig.text(.29, .005 + cbar_height * .5, fmt.format(vmin),
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.71, .005 + cbar_height * .5, fmt % vmax,
+        self.fig.text(.71, .005 + cbar_height * .5, fmt.format(vmax),
                       color="white", size=14, ha="left", va="center")
 
     def _add_double_colorbar(self, vmin, vmax, pos_cmap, neg_cmap, fmt):
@@ -458,19 +441,20 @@ class Mosaic(object):
         pos_ax.pcolormesh(bar_data, cmap=pos_cmap)
         neg_ax.pcolormesh(bar_data, cmap=neg_cmap)
 
-        self.fig.text(.54, .005 + cbar_height * .5, fmt % vmin,
+        fmt = "{:" + fmt + "}"
+
+        self.fig.text(.54, .005 + cbar_height * .5, fmt.format(vmin),
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.86, .005 + cbar_height * .5, fmt % vmax,
+        self.fig.text(.86, .005 + cbar_height * .5, fmt.format(vmax),
                       color="white", size=14, ha="left", va="center")
 
-        self.fig.text(.14, .005 + cbar_height * .5, fmt % -vmax,
+        self.fig.text(.14, .005 + cbar_height * .5, fmt.format(-vmax),
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.46, .005 + cbar_height * .5, fmt % -vmin,
+        self.fig.text(.46, .005 + cbar_height * .5, fmt.format(-vmin),
                       color="white", size=14, ha="left", va="center")
 
     def _get_cmap(self, cmap):
         """Parse a string spec of a cubehelix palette."""
-        from seaborn import cubehelix_palette
         if isinstance(cmap, string_types):
             if cmap.startswith("cube"):
                 if cmap.endswith("_r"):
@@ -479,12 +463,13 @@ class Mosaic(object):
                 else:
                     reverse = True
                 _, start, rot = cmap.split(":")
-                cmap = cubehelix_palette(as_cmap=True,
-                                         start=float(start),
-                                         rot=float(rot),
-                                         light=.95,
-                                         dark=0,
-                                         reverse=reverse)
+                cube_rgb = mpl._cm.cubehelix(s=float(start),
+                                             r=float(rot))
+                cube_cmap = mpl.colors.LinearSegmentedColormap(cmap, cube_rgb)
+                lut = cube_cmap(np.linspace(.95, 0, 256))
+                if reverse:
+                    lut = lut[::-1]
+                cmap = mpl.colors.ListedColormap(lut)
         return cmap
 
     def savefig(self, fname, **kwargs):
