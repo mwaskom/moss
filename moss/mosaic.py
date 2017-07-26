@@ -99,11 +99,11 @@ class Mosaic(object):
         # Find a field of view that tries to eliminate empty voxels
         anat_fov = self.anat_img.get_data() > 1e-5
         if tight:
-            self.fov = np.ones_like(anat_fov)
-        elif mask is None:
             self.fov = anat_fov
+            if mask is not None:
+                self.fov &= mask_data
         else:
-            self.fov = anat_fov | mask_data
+            self.fov = np.ones_like(anat_fov)
 
         # Save the mosaic parameters
         self.n_col = n_col
@@ -441,14 +441,16 @@ class Mosaic(object):
         pos_ax.pcolormesh(bar_data, cmap=pos_cmap)
         neg_ax.pcolormesh(bar_data, cmap=neg_cmap)
 
-        self.fig.text(.54, .005 + cbar_height * .5, fmt % vmin,
+        fmt = "{:" + fmt + "}"
+
+        self.fig.text(.54, .005 + cbar_height * .5, fmt.format(vmin),
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.86, .005 + cbar_height * .5, fmt % vmax,
+        self.fig.text(.86, .005 + cbar_height * .5, fmt.format(vmax),
                       color="white", size=14, ha="left", va="center")
 
-        self.fig.text(.14, .005 + cbar_height * .5, fmt % -vmax,
+        self.fig.text(.14, .005 + cbar_height * .5, fmt.format(-vmax),
                       color="white", size=14, ha="right", va="center")
-        self.fig.text(.46, .005 + cbar_height * .5, fmt % -vmin,
+        self.fig.text(.46, .005 + cbar_height * .5, fmt.format(-vmin),
                       color="white", size=14, ha="left", va="center")
 
     def _get_cmap(self, cmap):

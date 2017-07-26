@@ -57,7 +57,7 @@ class TestMosaic(object):
         nt.assert_equal(len(step2.axes.flat) * 2, len(step1.axes.flat))
         plt.close("all")
 
-    def test_moasic_tight(self):
+    def test_mosaic_tight(self):
 
         mask = (self.anat_data * 0).astype(np.int8)
         mask[:, :, 40:67] = 1
@@ -178,11 +178,11 @@ class TestMosaic(object):
     def test_colormap_text(self):
 
         slc = mosaic.Mosaic(self.anat_img, self.stat_img)
-        slc.plot_overlay("Purples", 0, 10.5, fmt="%.1f")
+        slc.plot_overlay("Purples", 0, 10.5, fmt=".1f")
         nt.assert_equal(slc.fig.texts[-1].get_text(), "10.5")
 
         slc = mosaic.Mosaic(self.anat_img, self.stat_img)
-        slc.plot_overlay("Purples", 0, 10.5, fmt="%d")
+        slc.plot_overlay("Purples", 0, 10.5, fmt=".0f")
         nt.assert_equal(slc.fig.texts[-1].get_text(), "10")
 
     def test_bad_slice_dir(self):
