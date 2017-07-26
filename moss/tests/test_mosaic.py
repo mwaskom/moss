@@ -101,8 +101,8 @@ class TestMosaic(object):
 
     def test_statistical_overlays(self):
 
-        slc1 = mosaic.Mosaic(self.anat_img, self.stat_img)
-        slc2 = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc1 = mosaic.Mosaic(self.anat_img, self.stat_img, step=1)
+        slc2 = mosaic.Mosaic(self.anat_img, self.stat_img, step=1)
 
         slc1.plot_activation(thresh=1, vmin=.5, vmax=1.5,
                              pos_cmap="Purples_r", alpha=.9)
@@ -110,17 +110,19 @@ class TestMosaic(object):
                           cmap="Purples_r", alpha=.9)
 
         for ax1, ax2 in zip(slc1.axes.flat, slc2.axes.flat):
-            npt.assert_array_almost_equal(ax1.images[1].get_array().data,
-                                          ax2.images[1].get_array().data)
+            if len(ax1.images) > 1:
+                npt.assert_array_almost_equal(ax1.images[1].get_array().data,
+                                              ax2.images[1].get_array().data)
         plt.close("all")
 
     def test_subthresh_statistical_overlay(self):
 
-        slc = mosaic.Mosaic(self.anat_img, self.stat_img)
+        slc = mosaic.Mosaic(self.anat_img, self.stat_img, step=1)
         slc.plot_activation(thresh=100)
 
         for ax in slc.axes.flat:
-            assert np.isnan(ax.images[1].get_array().data).all()
+            if len(ax.images) > 1:
+                assert np.isnan(ax.images[1].get_array().data).all()
 
         plt.close("all")
 
@@ -149,8 +151,9 @@ class TestMosaic(object):
                  cmap="coolwarm", alpha=.9)
 
         for ax1, ax2 in zip(slc1.axes.flat, slc2.axes.flat):
-            npt.assert_array_almost_equal(ax1.images[1].get_array().data,
-                                          ax2.images[1].get_array().data)
+            if len(ax1.images) > 1:
+                npt.assert_array_almost_equal(ax1.images[1].get_array().data,
+                                              ax2.images[1].get_array().data)
         plt.close("all")
 
     def test_mask_overlay(self):
