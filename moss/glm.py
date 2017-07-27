@@ -2,6 +2,7 @@ from __future__ import division
 
 import numpy as np
 import scipy as sp
+from scipy import sparse
 import pandas as pd
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
@@ -763,11 +764,11 @@ def fsl_highpass_matrix(ntp, cutoff, tr=2):
     K = sp.linalg.toeplitz(kernel)
     K = np.dot(np.diag(1 / K.sum(axis=1)), K)
 
-    H = np.zeros((ntp, ntp))
+    H = np.empty((ntp, ntp))
     X = np.column_stack((np.ones(ntp), np.arange(ntp)))
     for k in range(ntp):
-        W = np.diag(K[k])
-        hat = np.dot(np.dot(X, np.linalg.pinv(np.dot(W, X))), W)
+        W = sparse.diags(K[k])
+        hat = np.dot(X, np.linalg.pinv(W * X) * W)
         H[k] = hat[k]
     F = np.eye(ntp) - H
     return F
