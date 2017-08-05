@@ -73,18 +73,20 @@ class Mosaic(object):
             if isinstance(stat, string_types):
                 stat_img = nib.load(stat)
             elif isinstance(stat, np.ndarray):
-                stat_img = nib.Nifti1Image(stat, anat_img.affine)
+                stat_img = nib.Nifti1Image(stat,
+                                           anat_img.affine,
+                                           anat_img.header)
             else:
                 stat_img = stat
-            stat_data = np.nan_to_num(stat_img.get_data().astype(np.float))
-            stat_img = nib.Nifti1Image(stat_data, stat_img.affine)
             self.stat_img = nib.as_closest_canonical(stat_img)
         # Load and reorient the mask image
         if mask is not None:
             if isinstance(mask, string_types):
                 mask_img = nib.load(mask)
             elif isinstance(mask, np.ndarray):
-                mask_img = nib.Nifti1Image(mask, anat_img.affine)
+                mask_img = nib.Nifti1Image(mask,
+                                           anat_img.affine,
+                                           anat_img.header)
             else:
                 mask_img = mask
             self.mask_img = nib.as_closest_canonical(mask_img)
@@ -175,7 +177,7 @@ class Mosaic(object):
         self._map("imshow", mask_fov, cmap="bone", vmin=0, vmax=3,
                   interpolation="nearest", alpha=.5)
 
-    def _map(self, func_name, data, **kwargs):
+    def _map(self, func_name, data, ignore_value_error=False, **kwargs):
         """Apply a named function to a 3D volume of data on each axes."""
         trans_order = dict(s=(0, 1, 2),
                            c=(1, 0, 2),
@@ -183,7 +185,13 @@ class Mosaic(object):
         slices = data.transpose(*trans_order)
         for slice, ax in zip(slices, self.axes.flat):
             func = getattr(ax, func_name)
-            func(np.rot90(slice), **kwargs)
+            try:
+                func(np.rot90(slice), **kwargs)
+            except ValueError:
+                if ignore_value_error:
+                    pass
+                else:
+                    raise
 
     def plot_activation(self, thresh=2, vmin=None, vmax=None, vmax_perc=99,
                         vfloor=None, pos_cmap="Reds_r", neg_cmap=None,
@@ -323,43 +331,17 @@ class Mosaic(object):
         self._map("imshow", mask_data, cmap=cmap, vmin=.5, vmax=1.5,
                   interpolation="nearest", alpha=alpha)
 
-    def plot_contours(self, cmap, levels=8, linewidths=1):
-        """Plot the statistical volume as a contour map."""
+    def plot_mask_edges(self, color="#ddcccc", linewidth=1):
+        """Plot the edges of possibly multiple masks to show overlap."""
+        cmap = mpl.colors.ListedColormap([color])
+
         slices = self.stat_img.get_data()[self.x_slice,
                                           self.y_slice,
-                                          self.z_slice].transpose(2, 0, 1)
+                                          self.z_slice]
 
-        if isinstance(cmap, list):
-            levels = len(cmap)
-            cmap = mpl.colors.ListedColormap(cmap)
-
-        vmin, vmax = np.percentile(slices, [1, 99])
-        for slice, ax in zip(slices, self.axes.flat):
-            try:
-                ax.contour(np.rot90(slice), levels, cmap=cmap,
-                           vmin=vmin, vmax=vmax, linewidths=linewidths)
-            except ValueError:
-                pass
-
-    def plot_mask_edges(self, palette="husl", linewidths=.75):
-        """Plot the edges of possibly multiple masks to show overlap."""
-        from seaborn import color_palette
-        n_masks = self.stat_img._data.shape[-1]
-        cmap = mpl.colors.ListedColormap(color_palette(palette, n_masks))
-
-        for mask_num in range(n_masks):
-            slices = self.stat_img.get_data()[self.x_slice,
-                                              self.y_slice,
-                                              self.z_slice,
-                                              mask_num].transpose(2, 0, 1)
-
-            for slice, ax in zip(slices, self.axes.flat):
-                if slice.any():
-                    ax.contour(np.rot90(slice * (mask_num + 1)), n_masks,
-                               cmap=cmap, vmin=1, vmax=n_masks,
-                               linewidths=linewidths)
-
-        self._add_single_colorbar(1, n_masks, cmap, "%d")
+        self._map("contour", slices, ignore_value_error=True,
+                  levels=[0, 1], cmap=cmap, vmin=0, vmax=1,
+                  linewidths=linewidth)
 
     def map(self, func_name, data, thresh=None, **kwargs):
         """Map a dataset across the mosaic of axes.
