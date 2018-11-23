@@ -4,8 +4,6 @@ import re
 import subprocess
 import tempfile
 import shutil
-import mimetypes
-import copy
 
 import numpy as np
 import pandas as pd
@@ -30,13 +28,12 @@ class EyeData(object):
         self.blinks = []
 
         # Obtain eye data in ASCII format
-        type, encoding = mimetypes.guess_type(fname)
-        if type == "text/plain":
-            temp_dir = None
-            asc_file = fname
-        else:
+        if fname.lower().endswith(".edf"):
             temp_dir = tempfile.mkdtemp()
             asc_file = self._edf_to_asc(fname, temp_dir)
+        else:
+            temp_dir = None
+            asc_file = fname
 
         # Process the eye data file
         self._parse_asc_file(asc_file)
@@ -225,22 +222,23 @@ class EyeData(object):
         and the samples have been converted to degrees.
 
         This replaces the ``saccades`` attribute that is originally populated
-        with the results of the Eyelink saccade detection algorithm; the Eyelink
-        data is copied to the ``eyelink_saccades`` attribute in this method.
+        with the results of the Eyelink saccade detection algorithm; the
+        Eyelink data is copied to the ``eyelink_saccades`` attribute in this
+        method.
 
         Parameters
         ----------
         kernel_sigma : float
-            Standard deviation of the smoothing kernel, in milliseconds. Samples
+            Standard deviation of smoothing kernel, in milliseconds. Samples
             are smoothed before eye movement velocity is computed.
         start_thresh, end_thresh : float, float pairs
-            Each pair gives the velocity threshold and required duration for the
+            Each pair gives velocity threshold and required duration for the
             respective identification of saccade onsets and offsets.
 
         Note
         ----
         This method currently does not alter any information in the
-        ``fixations`` field , which retains the fixation onset and offset timing
+        ``fixations`` field , which retains fixation onset and offset timing
         assigned by the Eyelink algorithm. As a result, samples might end up
         being tagged as both a "fixation" and a "saccade".
 
