@@ -10,11 +10,12 @@ def log0_safe_xticks(x, logsteps=True):
         raise ValueError("`x` values must be non-negative")
 
     if logsteps:
-        log_values = np.log(orig_values)
-        dx = np.diff(log_values)
-        step_size = np.median(dx[1:])
-        log_values[0] = log_values[1] - step_size 
-        values = np.exp(log_values)
+        with np.errstate(divide="ignore"):
+            log_values = np.log(orig_values)
+            dx = np.diff(log_values)
+            step_size = np.median(dx[1:])
+            log_values[0] = log_values[1] - step_size
+            values = np.exp(log_values)
     else:
         values = orig_values
 
