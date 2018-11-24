@@ -128,7 +128,7 @@ class EyeData(object):
 
         self.samples.append(fields[:4])
 
-    def convert_to_degrees(self, width, distance, resolution):
+    def convert_to_degrees(self, width, distance, resolution, flip_ud=False):
         """Convert eye position data from pixels to degrees.
 
         Also changes the origin from the upper right hand corner to the center
@@ -154,12 +154,16 @@ class EyeData(object):
             recenter_y_data(data["y"])
             pix_to_deg(data["x"])
             pix_to_deg(data["y"])
+            if flip_ud:
+                data["y"] *= -1
 
         for point in ["start", "end"]:
             recenter_x_data(self.saccades[point + "_x"])
             recenter_y_data(self.saccades[point + "_y"])
             pix_to_deg(self.saccades[point + "_x"])
             pix_to_deg(self.saccades[point + "_y"])
+            if flip_ud:
+                self.saccades[point + "_y"] *= -1
 
         return self
 
@@ -201,7 +205,8 @@ class EyeData(object):
         """
         start_time = self.messages[self.messages == "SYNCTIME"].index.item()
 
-        self.samples.index = (self.samples.index - start_time) / 1000
+        timestamps = (self.samples.index - start_time) / 1000
+        self.samples.index = timestamps
 
         def reindex_events(df):
             cols = ["start", "end"]
