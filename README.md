@@ -1,6 +1,8 @@
 Assorted Scientific Utilities
 =============================
 
+**Warning: This library is not actively used much and may be out of date, difficult to use, or incorrect. Reading the code might be useful, but I would not suggest serious usage!**
+
 Moss is a library of functions, classes, and scripts to that may be useful
 for analyzing scientific data. Because this package is developed for
 neuroimaging and cognitive science, there is probably some bias towards
