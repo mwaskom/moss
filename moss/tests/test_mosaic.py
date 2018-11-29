@@ -130,15 +130,16 @@ class TestMosaic(object):
 
         slc = mosaic.Mosaic(self.anat_img, self.stat_img)
 
-        slc.plot_activation(thresh=1, vmin=.5, vmax=1.5,
+        thresh = 1
+        slc.plot_activation(thresh=thresh, vmin=.5, vmax=1.5,
                             neg_cmap="Blues",  alpha=.9)
 
         ax = slc.axes.flat[10]
         nt.assert_equal(len(ax.images), 3)
         pos = ax.images[1].get_array()
         neg = ax.images[2].get_array()
-        nt.assert_true(pos[~np.isnan(pos)].min() >= 1)
-        nt.assert_true(neg[~np.isnan(neg)].max() <= -1)
+        nt.assert_true(pos[~np.isnan(pos)].min() >= thresh)
+        nt.assert_true(neg[~np.isnan(neg)].max() <= -thresh)
         plt.close("all")
 
     def test_statistical_overlay_by_map(self):

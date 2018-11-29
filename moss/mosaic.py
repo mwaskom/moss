@@ -287,7 +287,7 @@ class Mosaic(object):
         """
         stat_data = self.stat_img.get_data()[self.x_slice,
                                              self.y_slice,
-                                             self.z_slice]
+                                             self.z_slice].copy()
         if hasattr(self, "mask_img"):
             fov = self.mask_img.get_data()[self.x_slice,
                                            self.y_slice,
@@ -322,7 +322,7 @@ class Mosaic(object):
         """Plot the statistical volume as a binary mask."""
         mask_data = self.stat_img.get_data()[self.x_slice,
                                              self.y_slice,
-                                             self.z_slice]
+                                             self.z_slice].copy()
         bool_mask = mask_data.astype(bool)
         mask_data = bool_mask.astype(np.float)
         mask_data[~bool_mask] = np.nan
