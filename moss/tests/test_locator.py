@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 from nose.plugins.skip import SkipTest
-from numpy.testing import assert_equal
 
 from .. import locator
 
@@ -24,7 +23,7 @@ def test_locate_peaks():
         res = pd.DataFrame(res, index=[0])
         out = np.array(locator.locate_peaks(coord))
         out[0, -1] = int(out[0, -1])
-        yield assert_equal, np.array(res), out
+        assert np.array_equal(res, out)
 
 
 def test_shorten_name():
@@ -36,7 +35,7 @@ def test_shorten_name():
              ("Right Hippocampus", "R Hippocampus", "sub")]
 
     for orig, new, atlas in names:
-        yield assert_equal, new, locator.shorten_name(orig, atlas)
+        assert np.array_equal(new, locator.shorten_name(orig, atlas))
 
 
 def test_vox_to_mni():
@@ -51,4 +50,4 @@ def test_vox_to_mni():
     for vox, mni in coords:
         vox = np.atleast_2d(vox)
         mni = np.atleast_2d(mni)
-        yield assert_equal, mni, locator.vox_to_mni(vox)
+        assert np.array_equal(mni, locator.vox_to_mni(vox))

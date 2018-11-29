@@ -364,104 +364,105 @@ def randomize_corrmat(a, tail="both", corrected=True, n_iter=1000,
     return p_mat
 
 
-def randomize_classifier(data, model, n_iter=1000, cv_method="run",
-                         random_seed=None, return_dist=False, dv=None):
-    """Randomly shuffle class labels to build a null distribution of accuracy.
-
-    Randimization can be distributed over an IPython cluster using the ``dv``
-    argument. Otherwise, it runs in serial.
-
-    Parameters
-    ----------
-    data : dict
-        single-subject dataset dictionary
-    model : scikit-learn estimator
-        model object to fit
-    n_iter : int
-        number of permutation iterations
-    cv_method : run | sample | cv arg for cross_val_score
-        cross validate over runs, over samples (leave-one-out)
-        or otherwise something that can be provided to the cv
-        argument for sklearn.cross_val_score
-    random_state : int
-        seed for random state to obtain stable permutations
-    return_dist : bool
-        if True, return null distribution
-    dv : IPython direct view
-        view onto IPython cluster for parallel execution over iterations
-
-    Returns
-    -------
-    p_vals : n_tp array
-        array of one-sided p values for observed classification scores
-        against the empirical null distribution
-    null_dist : n_iter x n_tp array
-        array of null model scores, only if asked for it
-
-    """
-    # Import sklearn here to relieve moss dependency on it
-    from sklearn.cross_validation import (cross_val_score,
-                                          LeaveOneOut, LeaveOneLabelOut)
-    if dv is None:
-        from six.moves import builtins
-        _map = builtins.map
-    else:
-        _map = dv.map_sync
-
-    # Set up the data properly
-    X = data["X"]
-    y = data["y"]
-    runs = data["runs"]
-    if cv_method == "run":
-        cv = LeaveOneLabelOut(runs)
-    elif cv_method == "sample":
-        cv = LeaveOneOut(len(y))
-    else:
-        cv = cv_method
-    if X.ndim < 3:
-        X = [X]
-
-    def _perm_decode(model, X, y, cv, perm):
-        """Internal func for parallel purposes."""
-        y_perm = y[perm]
-        perm_acc = cross_val_score(model, X, y_perm, cv=cv).mean()
-        return perm_acc
-
-    # Make lists to send into map()
-    model_p = [model for i in range(n_iter)]
-    y_p = [y for i in range(n_iter)]
-    cv_p = [cv for i in range(n_iter)]
-
-    # Permute within run
-    rs = np.random.RandomState(random_seed)
-    perms = []
-    for i in range(n_iter):
-        perm_i = []
-        for run in np.unique(runs):
-            perm_r = rs.permutation(np.sum(runs == run))
-            perm_r += np.sum(runs == run - 1)
-            perm_i.append(perm_r)
-        perms.append(np.concatenate(perm_i))
-
-    # Actually do the permutations, possibly in parallel
-    null_dist = []
-    for X_i in X:
-        X_p = [X_i for i in range(n_iter)]
-        tr_scores = list(_map(_perm_decode, model_p, X_p, y_p, cv_p, perms))
-        null_dist.append(tr_scores)
-    null_dist = np.array(null_dist).T
-
-    # Calculate a p value for each TR
-    p_vals = []
-    for i, dist_i in enumerate(null_dist.T):
-        acc_i = cross_val_score(model, X[i], y, cv=cv).mean()
-        p_i = 1 - percentile_score(dist_i, acc_i) / 100
-        p_vals.append(p_i)
-    p_vals = np.array(p_vals)
-
-    if return_dist:
-        return p_vals, null_dist
-    return p_vals
+# def randomize_classifier(data, model, n_iter=1000, cv_method="run",
+#                         random_seed=None, return_dist=False, dv=None):
+#    """Randomly shuffle class labels to build a null distribution of accuracy.
+#
+#    Randimization can be distributed over an IPython cluster using the ``dv``
+#    argument. Otherwise, it runs in serial.
+#
+#    Parameters
+#    ----------
+#    data : dict
+#        single-subject dataset dictionary
+#    model : scikit-learn estimator
+#        model object to fit
+#    n_iter : int
+#        number of permutation iterations
+#    cv_method : run | sample | cv arg for cross_val_score
+#        cross validate over runs, over samples (leave-one-out)
+#        or otherwise something that can be provided to the cv
+#        argument for sklearn.cross_val_score
+#    random_state : int
+#        seed for random state to obtain stable permutations
+#    return_dist : bool
+#        if True, return null distribution
+#    dv : IPython direct view
+#        view onto IPython cluster for parallel execution over iterations
+#
+#    Returns
+#    -------
+#    p_vals : n_tp array
+#        array of one-sided p values for observed classification scores
+#        against the empirical null distribution
+#    null_dist : n_iter x n_tp array
+#        array of null model scores, only if asked for it
+#
+#    """
+#    # Import sklearn here to relieve moss dependency on it
+#    from sklearn.model_selection import (cross_val_score,
+#                                         LeaveOneOut, LeaveOneGroupOut)
+#
+#    if dv is None:
+#        from six.moves import builtins
+#        _map = builtins.map
+#    else:
+#        _map = dv.map_sync
+#
+#    # Set up the data properly
+#    X = data["X"]
+#    y = data["y"]
+#    runs = data["runs"]
+#    if cv_method == "run":
+#        cv = LeaveOneGroupOut().split(X, y, runs)
+#    elif cv_method == "sample":
+#        cv = LeaveOneOut().split(X, y)
+#    else:
+#        cv = cv_method
+#    if X.ndim < 3:
+#        X = [X]
+#
+#    def _perm_decode(model, X, y, cv, perm):
+#        """Internal func for parallel purposes."""
+#        y_perm = y[perm]
+#        perm_acc = cross_val_score(model, X, y_perm, cv=cv).mean()
+#        return perm_acc
+#
+#    # Make lists to send into map()
+#    model_p = [model for i in range(n_iter)]
+#    y_p = [y for i in range(n_iter)]
+#    cv_p = [cv for i in range(n_iter)]
+#
+#    # Permute within run
+#    rs = np.random.RandomState(random_seed)
+#    perms = []
+#    for i in range(n_iter):
+#        perm_i = []
+#        for run in np.unique(runs):
+#            perm_r = rs.permutation(np.sum(runs == run))
+#            perm_r += np.sum(runs == run - 1)
+#            perm_i.append(perm_r)
+#        perms.append(np.concatenate(perm_i))
+#
+#    # Actually do the permutations, possibly in parallel
+#    null_dist = []
+#    for X_i in X:
+#        X_p = [X_i for i in range(n_iter)]
+#        tr_scores = list(_map(_perm_decode, model_p, X_p, y_p, cv_p, perms))
+#        null_dist.append(tr_scores)
+#    null_dist = np.array(null_dist).T
+#
+#    # Calculate a p value for each TR
+#    p_vals = []
+#    for i, dist_i in enumerate(null_dist.T):
+#        acc_i = cross_val_score(model, X[i], y, cv=cv).mean()
+#        p_i = 1 - percentile_score(dist_i, acc_i) / 100
+#        p_vals.append(p_i)
+#    p_vals = np.array(p_vals)
+#
+#    if return_dist:
+#        return p_vals, null_dist
+#    return p_vals
 
 
 def transition_probabilities(sched):
@@ -579,7 +580,7 @@ def vectorized_correlation(x, y):
     my = y.mean(axis=-1)
     xm, ym = x - mx[..., None], y - my[..., None]
     r_num = np.add.reduce(xm * ym, axis=-1)
-    r_den = np.sqrt(stats.ss(xm, axis=-1) * stats.ss(ym, axis=-1))
+    r_den = np.sqrt((xm ** 2).sum(axis=-1) * (ym ** 2).sum(axis=-1))
     r = r_num / r_den
     return r
 
