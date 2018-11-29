@@ -33,7 +33,7 @@ class HRFModel(object):
         impulse = pd.Series(np.zeros_like(hires_timepoints),
                             index=hires_timepoints,
                             name="Impulse response")
-        impulse.ix[0] = 1
+        impulse.loc[0] = 1
         hires_response = self.convolve(impulse)
 
         out_response = pd.DataFrame(index=self._sampled_timepoints,
