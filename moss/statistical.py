@@ -579,7 +579,7 @@ def vectorized_correlation(x, y):
     my = y.mean(axis=-1)
     xm, ym = x - mx[..., None], y - my[..., None]
     r_num = np.add.reduce(xm * ym, axis=-1)
-    r_den = np.sqrt(stats.ss(xm, axis=-1) * stats.ss(ym, axis=-1))
+    r_den = np.sqrt((xm ** 2).sum(axis=-1) * (ym ** 2).sum(axis=-1))
     r = r_num / r_den
     return r
 
