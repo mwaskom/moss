@@ -3,6 +3,7 @@ from __future__ import division
 import numpy as np
 from scipy import stats
 from scipy.interpolate import interp1d
+from scipy.spatial import distance
 import pandas as pd
 from six.moves import range
 
@@ -659,3 +660,49 @@ def percent_change(ts, n_runs=1):
         out_ts = out_ts.values
 
     return out_ts
+
+
+def poisson_disc_sample(array_radius, fixation_radius, radius, candidates):
+    """Find positions using poisson-disc sampling."""
+    # See http://bost.ocks.org/mike/algorithms/
+    rs = np.random.RandomState(15)
+    uniform = rs.uniform
+    randint = rs.randint
+
+    # Start at a fixed point we know will work
+    start = 0, array_radius / 2
+    samples = [start]
+    queue = [start]
+
+    while queue:
+
+        # Pick a sample to expand from
+        s_idx = randint(len(queue))
+        s_x, s_y = queue[s_idx]
+
+        for i in range(candidates):
+
+            # Generate a candidate from this sample
+            a = uniform(0, 2 * np.pi)
+            r = uniform(radius, 2 * radius)
+            x, y = s_x + r * np.cos(a), s_y + r * np.sin(a)
+
+            # Check the three conditions to accept the candidate
+            in_array = np.sqrt(x ** 2 + y ** 2) < array_radius
+            in_ring = np.all(distance.cdist(samples, [(x, y)]) > radius)
+            in_fixation = np.sqrt(x ** 2 + y ** 2) < fixation_radius
+
+            if in_array and in_ring and not in_fixation:
+                # Accept the candidate
+                samples.append((x, y))
+                queue.append((x, y))
+                break
+
+        if (i + 1) == candidates:
+            # We've exhausted the particular sample
+            queue.pop(s_idx)
+
+    # Remove first sample to give space around the fix point
+    samples = np.array(samples)[1:]
+
+    return samples
