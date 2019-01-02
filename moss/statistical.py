@@ -662,12 +662,14 @@ def percent_change(ts, n_runs=1):
     return out_ts
 
 
-def poisson_disc_sample(array_radius, fixation_radius, radius, candidates):
+def poisson_disc_sample(array_radius, fixation_radius, radius, candidates,
+                        rng=None):
     """Find positions using poisson-disc sampling."""
     # See http://bost.ocks.org/mike/algorithms/
-    rs = np.random.RandomState(15)
-    uniform = rs.uniform
-    randint = rs.randint
+    if rng is None:
+        rng = np.random.RandomState()
+    uniform = rng.uniform
+    randint = rng.randint
 
     # Start at a fixed point we know will work
     start = 0, array_radius / 2
