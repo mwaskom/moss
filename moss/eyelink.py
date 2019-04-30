@@ -62,7 +62,7 @@ class EyeData(object):
         # Parse some settings
         sample_settings = self.settings["SAMPLES"]
         self.units = sample_settings.split()[0]
-        m = re.search("RATE (\d+\.00)", sample_settings)
+        m = re.search(r"RATE (\d+\.00)", sample_settings)
         self.sampling_rate = float(m.group(1))
 
         # Clean up
@@ -210,7 +210,7 @@ class EyeData(object):
 
         def reindex_events(df):
             cols = ["start", "end"]
-            df.loc[:, cols] = (df[cols] - start_time) / self.sampling_rate
+            df.loc[:, cols] = (df[cols] - start_time) / 1000
             df.loc[:, "duration"] /= 1000
 
         for event_type in ["blinks", "saccades", "fixations"]:
